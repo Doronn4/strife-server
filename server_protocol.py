@@ -70,21 +70,21 @@ class Protocol:
 
         }
 
-    def approve(self, opcode):
+    def approve(self, target_opcode):
         # Get the opcode of register
         opcode = self.general_opcodes['approve_reject']
         # Construct the message
-        msg = f"{str(opcode).zfill(2)}{self.FIELD_SEPARATOR}{int(True)}{self.FIELD_SEPARATOR}{opcode}"
+        msg = f"{str(opcode).zfill(2)}{self.FIELD_SEPARATOR}{int(True)}{self.FIELD_SEPARATOR}{target_opcode}"
         # The message size
         size = len(msg)
         # Return the message after protocol
         return f'{str(size).zfill(2)}{msg}'
 
-    def reject(self, opcode):
+    def reject(self, target_opcode):
         # Get the opcode of register
         opcode = self.general_opcodes['approve_reject']
         # Construct the message
-        msg = f"{str(opcode).zfill(2)}{self.FIELD_SEPARATOR}{int(False)}{self.FIELD_SEPARATOR}{opcode}"
+        msg = f"{str(opcode).zfill(2)}{self.FIELD_SEPARATOR}{int(False)}{self.FIELD_SEPARATOR}{target_opcode}"
         # The message size
         size = len(msg)
         # Return the message after protocol
