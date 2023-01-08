@@ -7,7 +7,7 @@ class Protocol:
         # A char for separating fields in the message
         self.FIELD_SEPARATOR = '@'
         # A chat for separating items in a list of items in a field
-        self.LIST_SEPARATOR = '$'
+        self.LIST_SEPARATOR = '#'
 
         # Opcodes to construct messages (server -> client)
         self.general_opcodes = {
@@ -71,6 +71,11 @@ class Protocol:
         }
 
     def approve(self, target_opcode):
+        """
+        Constructs an approve msg with the protocol
+        :param target_opcode:
+        :return:
+        """
         # Get the opcode of register
         opcode = self.general_opcodes['approve_reject']
         # Construct the message
@@ -81,6 +86,11 @@ class Protocol:
         return f'{str(size).zfill(2)}{msg}'
 
     def reject(self, target_opcode):
+        """
+        Constructs an approve msg with the protocol
+        :param target_opcode:
+        :return:
+        """
         # Get the opcode of register
         opcode = self.general_opcodes['approve_reject']
         # Construct the message
@@ -91,6 +101,11 @@ class Protocol:
         return f'{str(size).zfill(2)}{msg}'
 
     def friend_request_notify(self, sender_username):
+        """
+        Constructs an approve msg with the protocol
+        :param sender_username:
+        :return:
+        """
         # Get the opcode of register
         opcode = self.general_opcodes['friend_request']
         # Construct the message
@@ -101,8 +116,15 @@ class Protocol:
         return f'{str(size).zfill(2)}{msg}'
 
     def added_to_group(self, group_name, chat_id, key):
+        """
+        Constructs an approve msg with the protocol
+        :param group_name:
+        :param chat_id:
+        :param key:
+        :return:
+        """
         # Get the opcode of register
-        opcode = self.general_opcodes['friend_request']
+        opcode = self.general_opcodes['added_to_group']
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{self.FIELD_SEPARATOR}{group_name}" \
               f"{self.FIELD_SEPARATOR}{chat_id}{self.FIELD_SEPARATOR}{key}"
@@ -112,6 +134,11 @@ class Protocol:
         return f'{str(size).zfill(2)}{msg}'
 
     def voice_started(self, chat_id):
+        """
+        Constructs an approve msg with the protocol
+        :param chat_id:
+        :return:
+        """
         # Get the opcode of register
         opcode = self.general_opcodes['voice_call_started']
         # Construct the message
@@ -122,6 +149,11 @@ class Protocol:
         return f'{str(size).zfill(2)}{msg}'
 
     def video_started(self, chat_id):
+        """
+        Constructs an approve msg with the protocol
+        :param chat_id:
+        :return:
+        """
         # Get the opcode of register
         opcode = self.general_opcodes['video_call_started']
         # Construct the message
@@ -132,15 +164,28 @@ class Protocol:
         return f'{str(size).zfill(2)}{msg}'
 
     def voice_call_info(self, chat_id, ips, usernames):
+        """
+
+        :param chat_id:
+        :param ips:
+        :param usernames:
+        :return:
+        """
         # Get the opcode of register
         opcode = self.general_opcodes['voice_call_info']
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{self.FIELD_SEPARATOR}{chat_id}{self.FIELD_SEPARATOR}"
+        # Add the first ip
+        msg += ips[0]
         # Add the ips to the message
-        for ip in ips:
+        for ip in ips[1:]:
             msg += self.LIST_SEPARATOR + ip
+        # Separate the fields
+        msg += self.FIELD_SEPARATOR
+        # Add the first username
+        msg += usernames[0]
         # Add the usernames to the message
-        for username in usernames:
+        for username in usernames[1:]:
             msg += self.LIST_SEPARATOR + username
         # The message size
         size = len(msg)
@@ -148,15 +193,28 @@ class Protocol:
         return f'{str(size).zfill(2)}{msg}'
 
     def video_call_info(self, chat_id, ips, usernames):
+        """
+
+        :param chat_id:
+        :param ips:
+        :param usernames:
+        :return:
+        """
         # Get the opcode of register
         opcode = self.general_opcodes['video_call_info']
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{self.FIELD_SEPARATOR}{chat_id}{self.FIELD_SEPARATOR}"
+        # Add the first ip
+        msg += ips[0]
         # Add the ips to the message
-        for ip in ips:
+        for ip in ips[1:]:
             msg += self.LIST_SEPARATOR + ip
+        # Separate the fields
+        msg += self.FIELD_SEPARATOR
+        # Add the first username
+        msg += usernames[0]
         # Add the usernames to the message
-        for username in usernames:
+        for username in usernames[1:]:
             msg += self.LIST_SEPARATOR + username
         # The message size
         size = len(msg)
@@ -164,6 +222,13 @@ class Protocol:
         return f'{str(size).zfill(2)}{msg}'
 
     def voice_user_joined(self, chat_id, user_ip, username):
+        """
+
+        :param chat_id:
+        :param user_ip:
+        :param username:
+        :return:
+        """
         # Get the opcode of register
         opcode = self.general_opcodes['voice_user_joined']
         # Construct the message
@@ -175,6 +240,13 @@ class Protocol:
         return f'{str(size).zfill(2)}{msg}'
 
     def video_user_joined(self, chat_id, user_ip, username):
+        """
+
+        :param chat_id:
+        :param user_ip:
+        :param username:
+        :return:
+        """
         # Get the opcode of register
         opcode = self.general_opcodes['video_user_joined']
         # Construct the message
@@ -189,12 +261,20 @@ class Protocol:
         pass
 
     def group_names(self, chat_id, usernames):
+        """
+
+        :param chat_id:
+        :param usernames:
+        :return:
+        """
         # Get the opcode of register
         opcode = self.general_opcodes['group_members']
         # Construct the message
-        msg = f"{str(opcode).zfill(2)}{self.FIELD_SEPARATOR}{chat_id}"
+        msg = f"{str(opcode).zfill(2)}{self.FIELD_SEPARATOR}{chat_id}{self.FIELD_SEPARATOR}"
+        # Add the first username
+        msg += usernames[0]
         # Add the usernames list
-        for username in usernames:
+        for username in usernames[1:]:
             msg += self.LIST_SEPARATOR + username
         # The message size
         size = len(msg)
@@ -202,6 +282,12 @@ class Protocol:
         return f'{str(size).zfill(2)}{msg}'
 
     def user_status(self, username, status):
+        """
+
+        :param username:
+        :param status:
+        :return:
+        """
         # Get the opcode of register
         opcode = self.general_opcodes['user_status']
         # Construct the message
@@ -212,6 +298,11 @@ class Protocol:
         return f'{str(size).zfill(2)}{msg}'
 
     def friend_added(self, friend_username):
+        """
+
+        :param friend_username:
+        :return:
+        """
         # Get the opcode of register
         opcode = self.general_opcodes['friend_added']
         # Construct the message
@@ -222,6 +313,13 @@ class Protocol:
         return f'{str(size).zfill(2)}{msg}'
 
     def send_file(self, chat_id, file_name, file):
+        """
+
+        :param chat_id:
+        :param file_name:
+        :param file:
+        :return:
+        """
         # Get the opcode of register
         kind = self.files_opcodes['send_file']
         # Construct the message
@@ -233,6 +331,12 @@ class Protocol:
         return f'{str(size).zfill(2)}{msg}'
 
     def profile_picture(self, profile_username, image):
+        """
+
+        :param profile_username:
+        :param image:
+        :return:
+        """
         # Get the opcode of register
         kind = self.files_opcodes['send_file']
         # Construct the message
@@ -244,6 +348,12 @@ class Protocol:
         return f'{str(size).zfill(2)}{msg}'
 
     def unprotocol_msg(self, type, raw_message):
+        """
+        Deconstructs a message received from the client with the client-server's protocol
+        :param type:
+        :param raw_message:
+        :return:
+        """
         # Split the message into it's fields with the field separator
         values = raw_message.split(self.FIELD_SEPARATOR)
 

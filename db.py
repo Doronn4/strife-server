@@ -37,7 +37,7 @@ class DBHandler:
         """
         # TODO: Check what type the password (hashed) field needs to be
         sql = f"CREATE TABLE IF NOT EXISTS users_table (" \
-              f"unique_id SERIAL PRIMARY KEY," \
+              f"unique_id INTEGER PRIMARY KEY," \
               f" username TEXT," \
               f" password CHAR(64)," \
               f" picture TEXT, " \
@@ -50,7 +50,7 @@ class DBHandler:
         :return:-
         """
         sql = f"CREATE TABLE IF NOT EXISTS groups_table (" \
-              f"chat_id SERIAL PRIMARY KEY," \
+              f"chat_id INTEGER PRIMARY KEY," \
               f" group_name TEXT," \
               f" date_of_creation DATE) "
         self.cursor.execute(sql)
@@ -169,11 +169,11 @@ class DBHandler:
             self.cursor.execute(sql)
             self.con.commit()
 
-    def create_group(self, group_name):
+    def create_group(self, group_name) -> int:
         """
         Create a new group in the database
         :param group_name: The group's name
-        :return: -
+        :return: The created group's chat id
         """
         # Get the date of today
         date_now = datetime.date.today()
@@ -181,6 +181,11 @@ class DBHandler:
         sql = f"INSERT INTO groups_table (group_name, date_of_creation) VALUES ('{group_name}', '{date_now}')"
         self.cursor.execute(sql)
         self.con.commit()
+        # Get the group id
+        sql = f"SELECT chat_id from groups_table WHERE group_name ='{group_name}' AND date_of_creation ='{date_now}'"
+        self.cursor.execute(sql)
+        result = self.cursor.fetchall()[-1][0]
+        return result
 
     def add_to_group(self, chat_id, username):
         """
@@ -201,7 +206,7 @@ class DBHandler:
             flag = False
 
         else:
-            sql = f"INSERT INTO participants_table (chat_id, participant_unique_id) VALUES ('{chat_id}', {unique_id})"
+            sql = f"INSERT INTO participants_table (chat_id, participant_unique_id) VALUES ('{chat_id}', '{unique_id}')"
             self.cursor.execute(sql)
             self.con.commit()
 
@@ -231,7 +236,7 @@ class DBHandler:
         if unique_id is None:
             raise self.USER_DOESNT_EXIST_EXCEPTION
 
-        sql = f"SELECT * from participants_table WHERE chat_id='{chat_id}' AND participant_unique_id={unique_id}"
+        sql = f"SELECT * from participants_table WHERE chat_id='{chat_id}' AND participant_unique_id='{unique_id}'"
         self.cursor.execute(sql)
         result = self.cursor.fetchall()
         return len(result) == 1
@@ -248,7 +253,7 @@ class DBHandler:
 
             sql = f"SELECT unique_id from users_table WHERE username='{username}'"
             self.cursor.execute(sql)
-            result = self.cursor.fetchall()[0]
+            result = self.cursor.fetchall()[0][0]
 
         return result
 
@@ -287,7 +292,7 @@ class DBHandler:
         self.cursor.execute(sql)
         self.con.commit()
 
-    def check_credentials(self, username, password):
+    def check_credentials(self, username, password) -> bool:
         """
         Checks if there username and the password match a record in the database
         :param username: The username
@@ -313,4 +318,28 @@ class DBHandler:
         result = self.cursor.fetchall()
 
         return result
+
+
+if __name__ == '__main__':
+    # Test adding user and logging in
+    my_db = DBHandler('test_db')
+    my_db.add_user('doron', 'hello123')
+    assert my_db.check_credentials('doron', 'hello123')
+
+    # Test adding user to group
+    chat_id = my_db.create_group('testimgroup')
+    print(chat_id)
+    my_db.add_to_group(chat_id, 'doron')
+
+    # Test adding message in group
+    my_db.add_message(chat_id, 'doron', 'first message!')
+    print(my_db.get_chat_history(chat_id))
+
+    # Creating another group
+    new_chat_id = my_db.create_group('testimgroup')
+    print(new_chat_id)
+    assert new_chat_id != chat_id
+
+    my_db.update_user_status('doron', 'pigs')
+
 
