@@ -1,5 +1,6 @@
 import sqlite3
 import datetime
+import hashlib
 
 
 class DBHandler:
@@ -13,6 +14,9 @@ class DBHandler:
         # Connect to the database file
         self.con = sqlite3.connect(self.db_name + '.db')
         self.cursor = self.con.cursor()
+
+        # The max length of a chat message
+        self.MAX_MSG_LEN = 200  # Characters
 
         # Create the tables
         self._create_users_table()
@@ -35,7 +39,6 @@ class DBHandler:
         Creates the users table in the db
         :return:-
         """
-        # TODO: Check what type the password (hashed) field needs to be
         sql = f"CREATE TABLE IF NOT EXISTS users_table (" \
               f"unique_id INTEGER PRIMARY KEY," \
               f" username TEXT," \
@@ -81,12 +84,11 @@ class DBHandler:
         Creates the messages table in the db
         :return: -
         """
-        # TODO: Check what type the message field needs to be
         sql = f"CREATE TABLE IF NOT EXISTS messages_table (" \
               f"chat_id INT," \
               f" timestamp TIMESTAMP," \
               f" sender_unique_id INT, " \
-              f"message TEXT) "
+              f" message varbinary({self.MAX_MSG_LEN}))"
         self.cursor.execute(sql)
 
     def add_user(self, username, password):
@@ -102,9 +104,10 @@ class DBHandler:
         if self._user_exists(username):
             flag = False
         else:
+            data = [username, password]
             sql = f"INSERT INTO users_table (username, password, picture, status) " \
-                  f"VALUES ('{username}', '{password}', '{self.DEFAULT_PROFILE_PICTURE}', '{self.DEFAULT_STATUS}') "
-            self.cursor.execute(sql)
+                  f"VALUES (?, ?, '{self.DEFAULT_PROFILE_PICTURE}', '{self.DEFAULT_STATUS}') "
+            self.cursor.execute(sql, data)
             self.con.commit()
 
         return flag
@@ -115,8 +118,8 @@ class DBHandler:
         :param username: The username
         :return: True if exists of False if not
         """
-        sql = f"SELECT * from users_table WHERE username='{username}'"
-        self.cursor.execute(sql)
+        sql = f"SELECT * from users_table WHERE username=?"
+        self.cursor.execute(sql, [username])
         result = self.cursor.fetchall()
         return len(result) == 1
 
@@ -133,8 +136,9 @@ class DBHandler:
             raise self.USER_DOESNT_EXIST_EXCEPTION
 
         else:
-            sql = f"UPDATE users_table SET password='{new_password}' WHERE username='{username}'"
-            self.cursor.execute(sql)
+            data = [new_password, username]
+            sql = f"UPDATE users_table SET password=? WHERE username=?"
+            self.cursor.execute(sql, data)
             self.con.commit()
 
     def update_user_picture(self, username, picture_path):
@@ -149,8 +153,9 @@ class DBHandler:
             raise self.USER_DOESNT_EXIST_EXCEPTION
 
         else:
-            sql = f"UPDATE users_table SET picture='{picture_path}' WHERE username='{username}'"
-            self.cursor.execute(sql)
+            data = [picture_path, username]
+            sql = f"UPDATE users_table SET picture=? WHERE username=?"
+            self.cursor.execute(sql, data)
             self.con.commit()
 
     def update_user_status(self, username, new_status):
@@ -165,8 +170,9 @@ class DBHandler:
             raise self.USER_DOESNT_EXIST_EXCEPTION
 
         else:
-            sql = f"UPDATE users_table SET status='{new_status}' WHERE username='{username}'"
-            self.cursor.execute(sql)
+            data = [new_status, username]
+            sql = f"UPDATE users_table SET status=? WHERE username=?"
+            self.cursor.execute(sql, data)
             self.con.commit()
 
     def create_group(self, group_name) -> int:
@@ -177,13 +183,14 @@ class DBHandler:
         """
         # Get the date of today
         date_now = datetime.date.today()
+        data = [group_name, date_now]
         # Add the group to the groups table
-        sql = f"INSERT INTO groups_table (group_name, date_of_creation) VALUES ('{group_name}', '{date_now}')"
-        self.cursor.execute(sql)
+        sql = f"INSERT INTO groups_table (group_name, date_of_creation) VALUES (?, ?)"
+        self.cursor.execute(sql, data)
         self.con.commit()
         # Get the group id
-        sql = f"SELECT chat_id from groups_table WHERE group_name ='{group_name}' AND date_of_creation ='{date_now}'"
-        self.cursor.execute(sql)
+        sql = f"SELECT chat_id from groups_table WHERE group_name =? AND date_of_creation =?"
+        self.cursor.execute(sql, data)
         result = self.cursor.fetchall()[-1][0]
         return result
 
@@ -236,8 +243,9 @@ class DBHandler:
         if unique_id is None:
             raise self.USER_DOESNT_EXIST_EXCEPTION
 
-        sql = f"SELECT * from participants_table WHERE chat_id='{chat_id}' AND participant_unique_id='{unique_id}'"
-        self.cursor.execute(sql)
+        data = [chat_id, unique_id]
+        sql = f"SELECT * from participants_table WHERE chat_id=? AND participant_unique_id=?"
+        self.cursor.execute(sql, data)
         result = self.cursor.fetchall()
         return len(result) == 1
 
@@ -251,8 +259,8 @@ class DBHandler:
         # Check if user exists
         if self._user_exists(username):
 
-            sql = f"SELECT unique_id from users_table WHERE username='{username}'"
-            self.cursor.execute(sql)
+            sql = f"SELECT unique_id from users_table WHERE username=?"
+            self.cursor.execute(sql, [username])
             result = self.cursor.fetchall()[0][0]
 
         return result
@@ -272,12 +280,13 @@ class DBHandler:
         if not self._group_exists(chat_id):
             raise self.GROUP_DOESNT_EXIST_EXCEPTION
 
+        data = [chat_id, file_name, file_hash]
         sql = f"INSERT INTO files_table (chat_id, file_name, file_hash) VALUES (" \
-              f"'{chat_id}', '{file_name}', '{file_hash}')"
-        self.cursor.execute(sql)
+              f"?, ?, ?)"
+        self.cursor.execute(sql, data)
         self.con.commit()
 
-    def add_message(self, chat_id, sender_username, message):
+    def add_message(self, chat_id, sender_username, message: bytes):
         if not self._group_exists(chat_id):
             raise self.GROUP_DOESNT_EXIST_EXCEPTION
 
@@ -287,9 +296,11 @@ class DBHandler:
 
         timestamp = datetime.datetime.now()
 
+        data = [chat_id, timestamp, unique_id, message]
+
         sql = f"INSERT INTO messages_table (chat_id, timestamp, sender_unique_id, message) VALUES (" \
-              f"'{chat_id}', '{timestamp}', '{unique_id}', '{message}')"
-        self.cursor.execute(sql)
+              f"?, ?, ?, ?)"
+        self.cursor.execute(sql, data)
         self.con.commit()
 
     def check_credentials(self, username, password) -> bool:
@@ -299,8 +310,9 @@ class DBHandler:
         :param password: The password
         :return: True if the username and password match, false if not
         """
-        sql = f"SELECT * FROM users_table WHERE username='{username}' AND password='{password}'"
-        self.cursor.execute(sql)
+        data = [username, password]
+        sql = f"SELECT * FROM users_table WHERE username=? AND password=?"
+        self.cursor.execute(sql, data)
         result = self.cursor.fetchall()
         return len(result) == 1
 
@@ -321,9 +333,15 @@ class DBHandler:
 
 
 if __name__ == '__main__':
+
+    password = 'secretpass12334'
+    hashed_pass = hashlib.sha256(password.encode()).hexdigest()
+
+    print(type(hashed_pass))
+
     # Test adding user and logging in
     my_db = DBHandler('test_db')
-    my_db.add_user('doron', 'hello123')
+    my_db.add_user('doron2', hashed_pass)
     assert my_db.check_credentials('doron', 'hello123')
 
     # Test adding user to group
@@ -332,7 +350,7 @@ if __name__ == '__main__':
     my_db.add_to_group(chat_id, 'doron')
 
     # Test adding message in group
-    my_db.add_message(chat_id, 'doron', 'first message!')
+    my_db.add_message(chat_id, 'doron', 'not first'.encode())
     print(my_db.get_chat_history(chat_id))
 
     # Creating another group

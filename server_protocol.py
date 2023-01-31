@@ -364,3 +364,46 @@ class Protocol:
         # The returned dict
         ret = {}
 
+        # If the message was received in the general messages channel
+        if type == 'general':
+            # The first value in the dict is the opcode's name (opname)
+            opcode_name = self.c_general_opcodes[opcode]
+            ret['opname'] = opcode_name
+
+        # If the message was received in the chat messages channel
+        elif type == 'chat':
+            # The first value in the dict is the opcode's name (opname)
+            opcode_name = self.c_chat_opcodes[opcode]
+            ret['opname'] = opcode_name
+
+        # If the message was received in the files messages channel
+        elif type == 'files':
+            # The first value in the dict is the opcode's name (opname)
+            opcode_name = self.c_files_opcodes[opcode]
+            ret['opname'] = opcode_name
+
+        # Get the parameters names of the message
+        params_names = self.c_opcodes_params[self.c_general_opcodes[opcode]]
+
+        # Assign a value for each parameter in a dict
+        for i in range(len(values)):
+            value = values[i]
+            param_name = params_names[i]
+
+            # If the value is a list
+            if len(value.split(self.LIST_SEPARATOR)) > 1:
+                # Check if the list is of integers
+                if value.split(self.LIST_SEPARATOR)[0].isnumeric():
+                    ret[param_name] = [int(v) for v in value.split(self.LIST_SEPARATOR)]
+                else:
+                    ret[param_name] = value.split(self.LIST_SEPARATOR)
+
+            # If the value isn't a list
+            else:
+                # Check if the value is an integer
+                if value.isnumeric():
+                    ret[param_name] = int(value)
+                else:
+                    ret[param_name] = value
+        return ret
+
