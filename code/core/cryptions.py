@@ -1,4 +1,3 @@
-from cryptography.hazmat.primitives.asymmetric import rsa as CrypRSA
 import rsa
 import os
 from cryptography.hazmat.primitives import padding
@@ -146,6 +145,7 @@ if __name__ == '__main__':
     raw = 'ahdraokrlp\n'*20
     print(raw)
     key = AESCipher.generate_key()
+    print(len(key))
     enc = aes.encrypt(raw.encode(), key)
     print('enc', len(enc))
     print('raw', len(raw.encode()))

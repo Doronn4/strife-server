@@ -1,27 +1,29 @@
 import os
 from io import BytesIO
+from pathlib import Path
+
 from PIL import Image
 
 
 class FileHandler:
-    def __init__(self, base_path):
+    def __init__(self):
         """
         Initializes the FileHandler class with a given base path.
-
-        :param base_path: the base directory path.
         """
 
         self.PFP_SIZE = (100, 100)
-        self.base_path = base_path
         self.PFPS_PATH = '\\user-profiles'
         self.CHATS_PATH = '\\chats'
+
+        script_path = Path(os.path.abspath(__file__))
+        self.base_path = str(script_path.parent.parent.parent)+"\\data"
+
         self._create_folders()
 
     def _create_folders(self):
         """
         Creates the necessary folders to store PFPs and chats, if they don't already exist.
         """
-
         if not os.path.exists(self.base_path+self.PFPS_PATH):
             os.mkdir(self.base_path+self.PFPS_PATH)
 
@@ -96,7 +98,7 @@ class FileHandler:
 
 
 if __name__ == '__main__':
-    my = FileHandler('C:\\Users\doron\Desktop\\testdir')
+    my = FileHandler()
     my.create_chat(69)
     with open("C:\\Users\doron\Pictures\\2.jpeg", 'rb') as f:
         my.save_pfp(f.read(), 'gabzo')
