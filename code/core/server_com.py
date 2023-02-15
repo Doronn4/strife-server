@@ -1,6 +1,7 @@
 import socket
 import select
 import queue
+import threading
 
 
 class ServerCom:
@@ -20,6 +21,8 @@ class ServerCom:
         self.socket = None
         self.open_clients = {}
 
+        threading.Thread(target=self._main).start()
+
     def _main(self):
         """
         The main loop of the server
@@ -37,6 +40,7 @@ class ServerCom:
                 if current_socket is self.socket:
                     # Connecting a new client
                     client, addr = self.socket.accept()
+                    print('INFO: new client connected', addr)
                     # Add the client to the dict of open clients
                     self.open_clients[client] = addr
 
@@ -92,29 +96,20 @@ class ServerCom:
         return file_data
 
     def send_data(self, data: bytes, dst_addr):
-        # A list of the sockets that had the message sent to them
-        sent_to = []
         # Make the dst_addr a list
         if type(dst_addr) != list:
             dst_addr = [dst_addr]
 
         # send the data to all clients, run while loop until all the data is sent to all clients
-        while len(sent_to) < len(dst_addr):
-            for soc in self.open_clients.keys():
-                # if the client is in the list of ips to send to
-                if self.open_clients[soc] in dst_addr and self.open_clients[soc] not in sent_to:
-                    try:
-                        # send the length of the data first (2 bytes)
-                        soc.send(str(len(data)).zfill(2).encode())
-                        # send the data
-                        soc.send(data)
-                        sent_to.append(self.open_clients[soc])
-                    except socket.error:
-                        # close the client, remove it from the list of open clients
-                        # and remove it from the list of ips to send to
-                        dst_addr.remove(self.open_clients[soc])
-                        self._close_client(soc)
-                        break
+        for soc in self.open_clients.keys():
+            # if the client is in the list of ips to send to
+            if self.open_clients[soc] in dst_addr:
+                try:
+                    # send the data
+                    soc.send(data)
+                except socket.error:
+                    # close the client, remove it from the list of open clients
+                    self._close_client(soc)
 
     def _close_client(self, client_socket: socket.socket):
         """
@@ -122,6 +117,8 @@ class ServerCom:
         :param client_socket: the client socket to disconnect
         :return: -
         """
+        print('INFO: client disconnected', self.open_clients[client_socket])
+
         if client_socket in self.open_clients.keys():
             del self.open_clients[client_socket]
 

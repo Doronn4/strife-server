@@ -6,24 +6,28 @@ class KeysManager:
     """
     Class for managing keys of the clients and the server.
     """
-    def __init__(self):
-        """
-        Initializes the clients_keys dictionary, generates public and private keys.
-        """
-        self.clients_keys = {}
-        self.public_key = None
-        self.private_key = None
+    clients_keys = {}
+    public_key = None
+    private_key = None
 
-        self._generate_keys()
+    @staticmethod
+    def initialize():
+        """
+         generates public and private keys.
+        """
+        KeysManager._generate_keys()
 
-    def _generate_keys(self):
+    @staticmethod
+    def _generate_keys():
         """
         Generates public and private keys of the server.
         """
-        self.public_key, self.private_key = rsa.newkeys(RSACipher.KEY_SIZE)
+        KeysManager.public_key, KeysManager.private_key = rsa.newkeys(RSACipher.KEY_SIZE)
 
-    def get_client_key(self, username):
-        return self.clients_keys.get(username)
+    @staticmethod
+    def get_client_key(username):
+        return KeysManager.clients_keys.get(username)
 
-    def set_client_key(self, username, key):
-        self.clients_keys[username] = key
+    @staticmethod
+    def set_client_key(username, key):
+        KeysManager.clients_keys[username] = key

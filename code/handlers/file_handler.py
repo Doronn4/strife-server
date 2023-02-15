@@ -6,31 +6,41 @@ from PIL import Image
 
 
 class FileHandler:
-    def __init__(self):
+    
+    PFP_SIZE = (100, 100)
+    PFPS_PATH = '\\user-profiles'
+    CHATS_PATH = '\\chats'
+
+    script_path = None
+    base_path = None
+
+    @staticmethod
+    def initialize():
         """
         Initializes the FileHandler class with a given base path.
         """
-
-        self.PFP_SIZE = (100, 100)
-        self.PFPS_PATH = '\\user-profiles'
-        self.CHATS_PATH = '\\chats'
+        FileHandler.PFP_SIZE = (100, 100)
+        FileHandler.PFPS_PATH = '\\user-profiles'
+        FileHandler.CHATS_PATH = '\\chats'
 
         script_path = Path(os.path.abspath(__file__))
-        self.base_path = str(script_path.parent.parent.parent)+"\\data"
+        FileHandler.base_path = str(script_path.parent.parent.parent)+"\\data"
 
-        self._create_folders()
+        FileHandler._create_folders()
 
-    def _create_folders(self):
+    @staticmethod
+    def _create_folders():
         """
         Creates the necessary folders to store PFPs and chats, if they don't already exist.
         """
-        if not os.path.exists(self.base_path+self.PFPS_PATH):
-            os.mkdir(self.base_path+self.PFPS_PATH)
+        if not os.path.exists(FileHandler.base_path+FileHandler.PFPS_PATH):
+            os.mkdir(FileHandler.base_path+FileHandler.PFPS_PATH)
 
-        if not os.path.exists(self.base_path+self.CHATS_PATH):
-            os.mkdir(self.base_path+self.CHATS_PATH)
+        if not os.path.exists(FileHandler.base_path+FileHandler.CHATS_PATH):
+            os.mkdir(FileHandler.base_path+FileHandler.CHATS_PATH)
 
-    def save_pfp(self, contents: bytes, username: str):
+    @staticmethod
+    def save_pfp(contents: bytes, username: str):
         """
         Saves a profile picture in the base_path/user-profiles folder, with the file name "user-<username>.png".
 
@@ -38,11 +48,12 @@ class FileHandler:
         :param username: the username of the profile picture's owner.
         """
 
-        resized_pfp = self._resize_image(contents)
-        with open(f'{self.base_path}{self.PFPS_PATH}\\user-{username}.png', 'wb') as f:
+        resized_pfp = FileHandler._resize_image(contents)
+        with open(f'{FileHandler.base_path}{FileHandler.PFPS_PATH}\\user-{username}.png', 'wb') as f:
             f.write(resized_pfp)
 
-    def load_pfp(self, username):
+    @staticmethod
+    def load_pfp(username):
         """
         Loads a profile picture from the base_path/user-profiles folder.
 
@@ -50,11 +61,12 @@ class FileHandler:
         :return: the binary contents of the image file.
         """
 
-        with open(f'{self.base_path}{self.PFPS_PATH}\\user-{username}.png', 'rb') as f:
+        with open(f'{FileHandler.base_path}{FileHandler.PFPS_PATH}\\user-{username}.png', 'rb') as f:
             picture = f.read()
         return picture
 
-    def save_file(self, contents: bytes, chat_id: int, file_name: str):
+    @staticmethod
+    def save_file(contents: bytes, chat_id: int, file_name: str):
         """
         Saves a file in the base_path/chats/<chat_id> folder.
 
@@ -63,21 +75,23 @@ class FileHandler:
         :param file_name: the name of the file.
         """
 
-        with open(f'{self.base_path}{self.CHATS_PATH}\\{chat_id}\\{file_name}', 'wb') as f:
+        with open(f'{FileHandler.base_path}{FileHandler.CHATS_PATH}\\{chat_id}\\{file_name}', 'wb') as f:
             f.write(contents)
 
-    def create_chat(self, chat_id):
+    @staticmethod
+    def create_chat(chat_id):
         """
         Creates a folder for a chat in the base_path/chats folder.
 
         :param chat_id: the id of the chat.
         """
 
-        dir_path = f'{self.base_path}{self.CHATS_PATH}\\{chat_id}'
+        dir_path = f'{FileHandler.base_path}{FileHandler.CHATS_PATH}\\{chat_id}'
         if not os.path.exists(dir_path):
             os.mkdir(dir_path)
 
-    def _resize_image(self, image_bytes: bytes):
+    @staticmethod
+    def _resize_image(image_bytes: bytes):
         """
         Resizes an image to the size specified in PFP_SIZE.
 
@@ -89,7 +103,7 @@ class FileHandler:
         image = Image.open(BytesIO(image_bytes))
 
         # Resize image
-        image = image.resize(self.PFP_SIZE)
+        image = image.resize(FileHandler.PFP_SIZE)
 
         # Save image to bytes
         buffer = BytesIO()
@@ -100,5 +114,5 @@ class FileHandler:
 if __name__ == '__main__':
     my = FileHandler()
     my.create_chat(69)
-    with open("C:\\Users\doron\Pictures\\2.jpeg", 'rb') as f:
+    with open("C:\\Users\\doron\\Pictures\\2.jpeg", 'rb') as f:
         my.save_pfp(f.read(), 'gabzo')
