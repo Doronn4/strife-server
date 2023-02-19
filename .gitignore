@@ -1,2 +1,5 @@
 __pycache__/*
 .idea/*
+code/__pycache__/*
+code/core/__pycache__/*
+

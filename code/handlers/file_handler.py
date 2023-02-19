@@ -19,10 +19,6 @@ class FileHandler:
         """
         Initializes the FileHandler class with a given base path.
         """
-        FileHandler.PFP_SIZE = (100, 100)
-        FileHandler.PFPS_PATH = '\\user-profiles'
-        FileHandler.CHATS_PATH = '\\chats'
-
         script_path = Path(os.path.abspath(__file__))
         FileHandler.base_path = str(script_path.parent.parent.parent)+"\\data"
 
@@ -112,7 +108,8 @@ class FileHandler:
 
 
 if __name__ == '__main__':
-    my = FileHandler()
+    my = FileHandler
+    FileHandler.initialize()
     my.create_chat(69)
     with open("C:\\Users\\doron\\Pictures\\2.jpeg", 'rb') as f:
         my.save_pfp(f.read(), 'gabzo')

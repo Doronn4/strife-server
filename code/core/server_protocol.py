@@ -7,76 +7,84 @@ class Protocol:
     # A chat for separating items in a list of items in a field
     LIST_SEPARATOR = '#'
 
-    general_opcodes = {}
-    chat_opcodes = {}
-    files_opcodes = {}
-    c_general_opcodes = {}
-    c_chat_opcodes = {}
-    c_files_opcodes = {}
-    c_opcodes_params = {}
+    # Opcodes to construct messages (server -> client)
+    general_opcodes = {
+        'approve_reject': 1,
+        'friend_request': 2,
+        'added_to_group': 3,
+        'voice_call_started': 5,
+        'video_call_started': 6,
+        'voice_call_info': 7,
+        'video_call_info': 8,
+        'voice_user_joined': 9,
+        'video_user_joined': 10,
+        'chats_list': 11,
+        'group_members': 12,
+        'user_status': 13,
+        'friend_added': 14
+    }
+    chat_opcodes = {
+        'text_message': 1,
+        'file_description': 2
+    }
+    files_opcodes = {
+        'file_in_chat': 1,
+        'user_profile_picture': 2
+    }
 
-    @staticmethod
-    def initialize():
-        # Opcodes to construct messages (server -> client)
-        Protocol.general_opcodes = {
-            'approve_reject': 1,
-            'friend_request': 2,
-            'added_to_group': 3,
-            'voice_call_started': 5,
-            'video_call_started': 6,
-            'voice_call_info': 7,
-            'video_call_info': 8,
-            'voice_user_joined': 9,
-            'video_user_joined': 10,
-            'chats_list': 11,
-            'group_members': 12,
-            'user_status': 13,
-            'friend_added': 14
-        }
-        Protocol.chat_opcodes = {
-            'text_message': 1,
-            'file_description': 2
-        }
-        Protocol.files_opcodes = {
-            'file_in_chat': 1,
-            'user_profile_picture': 2
-        }
+    # Opcodes to read messages (client -> server)
+    c_general_opcodes = {
+        'register': 1,
+        'sign_in': 2,
+        'add_friend': 3,
+        'create_group': 4,
+        'start_voice': 5,
+        'start_video': 6,
+        'change_username': 7,
+        'change_status': 8,
+        'change_password': 9,
+        'get_chat_history': 10,
+        'request_file': 11,
+        'remove_friend': 12,
+        'join_voice': 13,
+        'join_video': 14,
+        'add_group_member': 15,
+        'request_group_members': 16,
+        'request_user_picture': 17,
+        'request_user_status': 18,
+        'request_chats': 19
+    }
+    c_chat_opcodes = {
+        'text_message': 1,
+        'file_description': 2
+    }
+    c_files_opcodes = {
+        'file_in_chat': 1,
+        'profile_pic_change': 2
+    }
 
-        # Opcodes to read messages (client -> server)
-        Protocol.c_general_opcodes = {
-            'register': 1,
-            'sign_in': 2,
-            'add_friend': 3,
-            'create_group': 4,
-            'start_voice': 5,
-            'start_video': 6,
-            'change_username': 7,
-            'change_status': 8,
-            'change_password': 9,
-            'get_chat_history': 10,
-            'request_file': 11,
-            'remove_friend': 12,
-            'join_voice': 13,
-            'join_video': 14,
-            'add_group_member': 15,
-            'request_group_members': 16,
-            'request_user_picture': 17,
-            'request_user_status': 18,
-            'request_chats': 19
-        }
-        Protocol.c_chat_opcodes = {
-            'text_message': 1,
-            'file_description': 2
-        }
-        Protocol.c_files_opcodes = {
-            'file_in_chat': 1,
-            'profile_pic_change': 2
-        }
-
-        # Parameters of every message from the client
-        Protocol.c_opcodes_params = {
-
-        }
+    # Parameters of every message from the client
+    c_opcodes_params = {
+        'register': ('username', 'password'),
+        'sign_in': ('username', 'password'),
+        'add_friend': ('friend_username',),
+        'create_group': ('group_name', 'group_key'),
+        'start_voice': ('chat_id',),
+        'start_video': ('chat_id',),
+        'change_username': ('new_username',),
+        'change_status': ('new_status',),
+        'change_password': ('old_password', 'new_password'),
+        'get_chat_history': ('chat_id',),
+        'request_file': ('file_hash',),
+        'remove_friend': ('friend_username',),
+        'join_voice': ('chat_id',),
+        'join_video': ('chat_id',),
+        'add_group_member': ('chat_id', 'new_member_username'),
+        'request_group_members': ('chat_id',),
+        'request_user_picture': ('pfp_username',),
+        'request_user_status': ('username',),
+        'request_chats': ()
+    }
 
     @staticmethod
     def approve(target_opcode):
@@ -430,4 +438,6 @@ class Protocol:
                 else:
                     ret[param_name] = value
         return ret
+
+
 
