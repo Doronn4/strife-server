@@ -2,6 +2,7 @@ import socket
 import select
 import queue
 import threading
+from code.core.cryptions import RSACipher
 
 
 class ServerCom:
@@ -15,12 +16,14 @@ class ServerCom:
         :param server_port: The server port
         :param message_queue: The message queue
         """
-        self.FILE_CHUNK_SIZE = 4096
-        self.port = server_port
-        self.message_queue = message_queue
-        self.socket = None
-        self.open_clients = {}
+        self.FILE_CHUNK_SIZE = 4096  # The chunk size to send when sending files
+        self.port = server_port  # The server's port
+        self.message_queue = message_queue  # The message queue of the server
+        self.socket = None  # The socket of the server
+        self.open_clients = {}  # [soc]:[ip, key]
+        self.rsa = RSACipher()  # The RSA encryption and decryption object
 
+        # Start the main loop in a thread
         threading.Thread(target=self._main).start()
 
     def _main(self):
@@ -31,31 +34,33 @@ class ServerCom:
         # Create the socket
         self.socket = socket.socket()
         self.socket.bind(('0.0.0.0', self.port))
-        self.socket.listen(5)
+        self.socket.listen(4)
 
         while True:
             rlist, wlist, xlist = select.select([self.socket] + list(self.open_clients.keys()),
-                                                list(self.open_clients.keys()), [])
+                                                list(self.open_clients.keys()), [], 0.03)
             for current_socket in rlist:
                 if current_socket is self.socket:
                     # Connecting a new client
                     client, addr = self.socket.accept()
-                    print('INFO: new client connected', addr)
-                    # Add the client to the dict of open clients
-                    self.open_clients[client] = addr
+                    print('INFO: new client trying to connect', addr)
+                    # Start a thread to swap keys with the client
+                    threading.Thread(target=self._change_keys, args=(client, addr[0],)).start()
 
                 # A message has been sent from a client
                 else:
                     try:
-                        # Try to receive the size of the data
-                        size = int(self.socket.recv(2).decode())
+                        # Receive the size of the data
+                        size = current_socket.recv(4).decode()
+                        # Convert the size to int
+                        size = int(size)
                         # Receive the data
-                        data = self.socket.recv(size).decode()
+                        data = current_socket.recv(size)
 
                     # Handle exceptions
                     except ValueError:
                         self._close_client(current_socket)
-                    except socket.error:
+                    except socket.error as e:
                         self._close_client(current_socket)
 
                     else:
@@ -63,10 +68,41 @@ class ServerCom:
                             # Client disconnected
                             self._close_client(current_socket)
                         else:
+                            # Decrypt the data and decode it back to a string
+                            dec_data = self.rsa.decrypt(data).decode()
                             # Add the message to the queue
-                            self.message_queue.put(data)
+                            self.message_queue.put((dec_data, self.open_clients[current_socket][0]))
 
-    def receive_file(self, from_addr, size: int):
+    def _change_keys(self, client: socket.socket, ip: str):
+        """
+        Swaps public keys with a client and adds him to the open clients
+        :param client: The client socket
+        :param ip: The client's ip
+        :return: -
+        """
+        try:
+            # Get the server's public key in a string
+            key = self.rsa.get_string_public_key()
+            # Send the server's public key to the client
+            client.send(key)
+            # Receive the client's public key and decode it into a string
+            client_key = client.recv(1024).decode()
+            # Convert the client's key from a string to a publicKey object
+            client_rsa_key = client_key
+
+        except Exception as e:
+            # Handle exceptions
+            print(e)
+            print('INFO: Change keys with', ip, 'unsuccessful')
+            self._close_client(client)
+
+        else:
+            # Add the client to the dict of connected clients and save his ip and public key
+            self.open_clients[client] = [ip, client_rsa_key]
+            print('INFO: Changed keys successfully with', ip)
+            print('INFO: new client connected', ip)
+
+    def receive_file(self, from_addr: str, size: int):
         """
         Receive a file from a client
         :param from_addr: The addr of the client
@@ -74,7 +110,7 @@ class ServerCom:
         :return: The file (as bytes)
         """
         # Get the client socket by his addr
-        client_socket = [soc for soc, addr in self.open_clients.items() if addr == from_addr][0]
+        client_socket = self._get_sock_by_ip(from_addr)
 
         # Initialize an empty bytearray to store the file data
         file_data = bytearray()
@@ -95,18 +131,53 @@ class ServerCom:
 
         return file_data
 
-    def send_data(self, data: bytes, dst_addr):
+    def _get_sock_by_ip(self, target_ip: str):
+        """
+        Find the socket that belongs to the target ip in the server's connected clients dict
+        :param target_ip: The ip of the socket
+        :return: The socket of the client
+        """
+        # Return value
+        ret_sock = None
+
+        # Loop over all of the clients connected to the server
+        for soc, (ip, key) in self.open_clients.items():
+            # Check if the ip is the target ip
+            if ip == target_ip:
+                # Return the socket found
+                ret_sock = soc
+                break
+
+        return ret_sock
+
+    def send_data(self, data, dst_addr: str):
+        """
+        Send data to a client or a list of clients
+        :param data: The data to send
+        :param dst_addr: The destination ip
+        :return: -
+        """
         # Make the dst_addr a list
         if type(dst_addr) != list:
             dst_addr = [dst_addr]
 
-        # send the data to all clients, run while loop until all the data is sent to all clients
-        for soc in self.open_clients.keys():
-            # if the client is in the list of ips to send to
-            if self.open_clients[soc] in dst_addr:
+        # Make the data a byte array
+        if type(data) == str:
+            data = data.encode()
+
+        # Loop over all of the ips to send to
+        for ip in dst_addr:
+            # The the socket of the ip
+            soc = self._get_sock_by_ip(ip)
+            # Check if the socket is still connected to the server
+            if soc and soc in self.open_clients.keys():
                 try:
-                    # send the data
-                    soc.send(data)
+                    # encrypt the data
+                    enc_data = self.rsa.encrypt(data, self.open_clients[soc][1])
+                    # Send the length of the data
+                    soc.send(str(len(enc_data)).zfill(4).encode())
+                    # send the encrypted data
+                    soc.send(enc_data)
                 except socket.error:
                     # close the client, remove it from the list of open clients
                     self._close_client(soc)
@@ -117,18 +188,26 @@ class ServerCom:
         :param client_socket: the client socket to disconnect
         :return: -
         """
-        print('INFO: client disconnected', self.open_clients[client_socket])
+
+        if client_socket in self.open_clients.keys():
+            print('INFO: client disconnected', self.open_clients[client_socket][0])
 
         if client_socket in self.open_clients.keys():
             del self.open_clients[client_socket]
 
         client_socket.close()
 
-    def is_connected(self, client_addr):
+    def is_connected(self, client_addr: str):
         """
         Checks if a client is connected
         :param client_addr: The address of the client
         :return: If the client is connected
         """
-        return client_addr in self.open_clients.values()
+        flag = False
+        for ip, key in self.open_clients.values():
+            if ip == client_addr:
+                flag = True
+                break
+
+        return flag
 

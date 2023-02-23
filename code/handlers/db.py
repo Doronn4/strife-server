@@ -24,6 +24,7 @@ class DBHandler:
         self._create_participants_table()
         self._create_files_table()
         self._create_messages_table()
+        self._create_friends_table()
 
         # Default profile pic and status for new users
         self.DEFAULT_PROFILE_PICTURE = '\\default_pic.png'
@@ -91,6 +92,13 @@ class DBHandler:
               f" message varbinary({self.MAX_MSG_LEN}))"
         self.cursor.execute(sql)
 
+    def _create_friends_table(self):
+        sql = f"CREATE TABLE IF NOT EXISTS friends_table (" \
+              f"user_id INT," \
+              f" friend_id INT," \
+              f" primary key (user_id, friend_id))"
+        self.cursor.execute(sql)
+
     def add_user(self, username, password):
         """
         Adds a user to the users table.
@@ -104,6 +112,8 @@ class DBHandler:
         if self._user_exists(username):
             flag = False
         else:
+            # Hash password
+
             data = [username, password]
             sql = f"INSERT INTO users_table (username, password, picture, status) " \
                   f"VALUES (?, ?, '{self.DEFAULT_PROFILE_PICTURE}', '{self.DEFAULT_STATUS}') "
@@ -122,6 +132,107 @@ class DBHandler:
         self.cursor.execute(sql, [username])
         result = self.cursor.fetchall()
         return len(result) == 1
+
+    def _user_exists_id(self, user_id):
+        """
+        Check if a user exists in the database by his id
+        :param user_id: The user's id
+        :return: True if exists, false if doesn't
+        """
+        sql = f"SELECT * from users_table WHERE unique_id=?"
+        self.cursor.execute(sql, [user_id])
+        result = self.cursor.fetchall()
+        return len(result) == 1
+
+    def add_friend(self, username, friend):
+        """
+        Add a pair of friends to the friends table
+        :param username: The username of the first friends
+        :param friend: The username of the second friend
+        :return:
+        """
+        user_id = self._get_unique_id(username)
+        friend_id = self._get_unique_id(friend)
+
+        if not user_id or not friend_id:
+            raise self.USER_DOESNT_EXIST_EXCEPTION
+
+        if not self._are_friends(user_id, friend_id):
+            data = [user_id, friend_id]
+            sql = f"INSERT INTO friends_table (user_id, friend_id) " \
+                  f"VALUES (?, ?)"
+            self.cursor.execute(sql, data)
+            self.con.commit()
+
+    def remove_friend(self, username, friend):
+        """
+        Remove a pair of friends from the database
+        :param username: The username of the first friend
+        :param friend: The username of the second friend
+        :return: -
+        """
+        user_id = self._get_unique_id(username)
+        friend_id = self._get_unique_id(friend)
+
+        if not user_id or not friend_id:
+            raise self.USER_DOESNT_EXIST_EXCEPTION
+
+        if self._are_friends(user_id, friend_id):
+            data = [user_id, friend_id, user_id, friend_id]
+            sql = "DELETE FROM friends_table " \
+                  "WHERE (user_id=? AND friend_id=?) OR (friend_id=? AND user_id=?)"
+            self.cursor.execute(sql, data)
+            self.con.commit()
+
+    def _are_friends(self, user1_id: int, user2_id: int) -> bool:
+        """
+        Check if two users are friends
+        :param user1_id: First user's id
+        :param user2_id: Seconds user's id
+        :return: True if they are friends or false if not
+        """
+        data = [user1_id, user2_id, user1_id, user2_id]
+        sql = f"SELECT * from friends_table WHERE" \
+            f" (user_id=? AND friend_id=?)" \
+            f" OR" \
+            f" (friend_id=? AND user_id=?)"
+        self.cursor.execute(sql, data)
+        result = self.cursor.fetchall()
+        return len(result) == 1
+
+    def get_friends_of(self, username) -> list:
+        """
+        Get the friends of a user
+        :param username: The username
+        :return: A list of the user's friends usernames
+        """
+        user_id = self._get_unique_id(username)
+        data = [user_id, user_id]
+        sql = f"SELECT * from friends_table WHERE user_id=? OR friend_id=?"
+        self.cursor.execute(sql, data)
+        results = self.cursor.fetchall()
+
+        friends = []
+        for result in results:
+            friend_id = result[0] if result[0] != user_id else result[1]
+            friends.append(self._get_username(friend_id))
+
+        return friends
+
+    def _get_username(self, user_id: int):
+        """
+        Get a username of a user by his id
+        :param user_id: The user's id
+        :return: The username of the user
+        """
+        username = None
+
+        if self._user_exists_id(user_id):
+            sql = f"SELECT username from users_table WHERE unique_id=?"
+            self.cursor.execute(sql, [user_id])
+            username = self.cursor.fetchall()[0][0]
+
+        return username
 
     def update_user_password(self, username, new_password):
         """
@@ -175,10 +286,11 @@ class DBHandler:
             self.cursor.execute(sql, data)
             self.con.commit()
 
-    def create_group(self, group_name) -> int:
+    def create_group(self, group_name, creator) -> int:
         """
         Create a new group in the database
         :param group_name: The group's name
+        :param creator
         :return: The created group's chat id
         """
         # Get the date of today
@@ -192,9 +304,50 @@ class DBHandler:
         sql = f"SELECT chat_id from groups_table WHERE group_name =? AND date_of_creation =?"
         self.cursor.execute(sql, data)
         result = self.cursor.fetchall()[-1][0]
+
+        # Add the creator of the group to it
+        self._add_to_group(result, creator)
+
         return result
 
-    def add_to_group(self, chat_id, username):
+    def get_group_name(self, chat_id):
+        result = None
+        if self._group_exists(chat_id):
+            sql = f"SELECT group_name from groups_table WHERE chat_id =?"
+            self.cursor.execute(sql, [chat_id])
+            result = self.cursor.fetchall()[0][0]
+
+        return result
+
+    def add_to_group(self, chat_id, adder, username):
+        """
+        Adds a user to a group
+        :param chat_id: The chat id of the group
+        :param adder: The user that added the user to the group
+        :param username: The user's username
+        :return: True if the user was added to the group, false if not.
+        """
+        flag = True
+        unique_id = self._get_unique_id(username)
+
+        # If the username doesn't exist in the database
+        if unique_id is None:
+            flag = False
+
+        # The adder is not in the group
+        elif not self._is_in_group(chat_id, username=adder):
+            flag = False
+
+        # Check if the user is already in the group
+        elif self._is_in_group(chat_id, unique_id=unique_id):
+            flag = False
+
+        else:
+            sql = f"INSERT INTO participants_table (chat_id, participant_unique_id) VALUES (?, ?)"
+            self.cursor.execute(sql, [chat_id, unique_id])
+            self.con.commit()
+
+    def _add_to_group(self, chat_id, username):
         """
         Adds a user to a group
         :param chat_id: The chat id of the group
@@ -334,30 +487,13 @@ class DBHandler:
 
 if __name__ == '__main__':
 
-    password = 'secretpass12334'
-    hashed_pass = hashlib.sha256(password.encode()).hexdigest()
-
-    print(type(hashed_pass))
-
     # Test adding user and logging in
     my_db = DBHandler('test_db')
-    my_db.add_user('doron2', hashed_pass)
-    assert my_db.check_credentials('doron', 'hello123')
+    my_db.add_user('doron2', '123')
+    my_db.add_user('itay3108', 'dwkodkw')
+    my_db.add_user('itamar', '1234j')
 
-    # Test adding user to group
-    chat_id = my_db.create_group('testimgroup')
-    print(chat_id)
-    my_db.add_to_group(chat_id, 'doron')
-
-    # Test adding message in group
-    my_db.add_message(chat_id, 'doron', 'not first'.encode())
-    print(my_db.get_chat_history(chat_id))
-
-    # Creating another group
-    new_chat_id = my_db.create_group('testimgroup')
-    print(new_chat_id)
-    assert new_chat_id != chat_id
-
-    my_db.update_user_status('doron', 'pigs')
-
+    my_db.add_friend('doron2', 'itay3108')
+    my_db.add_friend('doron2', 'itamar')
+    print(my_db.get_friends_of('doron2'))
 

@@ -12,13 +12,10 @@ msg = Protocol.added_to_group('iftah fans', 69, 'blablablakey')
 while True:
     msg, addr = q.get()
     msg = Protocol.unprotocol_msg('general', msg)
-    print('msg received', msg)
     if msg['opname'] == 'sign_in':
-        print('yo')
         username = msg['username']
         password = msg['password']
         if username == 'm' and password == 'm':
             print('approved')
             m = Protocol.approve(msg['opcode'])
-            print(m)
-            com.send_data(m, addr)
+            com.send_data(m.encode(), addr)

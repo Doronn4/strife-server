@@ -9,58 +9,58 @@ class Protocol:
 
     # Opcodes to construct messages (server -> client)
     general_opcodes = {
-        'approve_reject': 1,
-        'friend_request': 2,
-        'added_to_group': 3,
-        'voice_call_started': 5,
-        'video_call_started': 6,
-        'voice_call_info': 7,
-        'video_call_info': 8,
-        'voice_user_joined': 9,
-        'video_user_joined': 10,
-        'chats_list': 11,
-        'group_members': 12,
-        'user_status': 13,
-        'friend_added': 14
+        'approve_reject': 1,  # All
+        'friend_request': 2,  # Friendlist
+        'added_to_group': 3,  # Chats
+        'voice_call_started': 5,  # Call
+        'video_call_started': 6,  # Call
+        'voice_call_info': 7,  # Call
+        'video_call_info': 8,  # Call
+        'voice_user_joined': 9,  # Call
+        'video_user_joined': 10,  # Call
+        'chats_list': 11,  # Chats
+        'group_members': 12,  # Chats
+        'user_status': 13,  # Chats
+        'friend_added': 14  # Friendlst
     }
     chat_opcodes = {
-        'text_message': 1,
-        'file_description': 2
+        'text_message': 1,  # Chats
+        'file_description': 2  # Chats
     }
     files_opcodes = {
-        'file_in_chat': 1,
-        'user_profile_picture': 2
+        'file_in_chat': 1,  # Chats
+        'user_profile_picture': 2  # Chats
     }
 
     # Opcodes to read messages (client -> server)
     c_general_opcodes = {
-        'register': 1,
-        'sign_in': 2,
-        'add_friend': 3,
-        'create_group': 4,
-        'start_voice': 5,
-        'start_video': 6,
-        'change_username': 7,
-        'change_status': 8,
-        'change_password': 9,
-        'get_chat_history': 10,
-        'request_file': 11,
-        'remove_friend': 12,
-        'join_voice': 13,
-        'join_video': 14,
-        'add_group_member': 15,
-        'request_group_members': 16,
-        'request_user_picture': 17,
-        'request_user_status': 18,
-        'request_chats': 19
+        1: 'register',
+        2: 'sign_in',
+        3: 'add_friend',
+        4: 'create_group',
+        5: 'start_voice',
+        6: 'start_video',
+        7: 'change_username',
+        8: 'change_status',
+        9: 'change_password',
+        10: 'get_chat_history',
+        11: 'request_file',
+        12: 'remove_friend',
+        13: 'join_voice',
+        14: 'join_video',
+        15: 'add_group_member',
+        16: 'request_group_members',
+        17: 'request_user_picture',
+        18: 'request_user_status',
+        19: 'request_chats'
     }
     c_chat_opcodes = {
-        'text_message': 1,
-        'file_description': 2
+        1: 'text_message',
+        2: 'file_description'
     }
     c_files_opcodes = {
-        'file_in_chat': 1,
-        'profile_pic_change': 2
+        1: 'file_in_chat',
+        2: 'profile_pic_change'
     }
 
     # Parameters of every message from the client
@@ -68,7 +68,7 @@ class Protocol:
         'register': ('username', 'password'),
         'sign_in': ('username', 'password'),
         'add_friend': ('friend_username',),
-        'create_group': ('group_name', 'group_key'),
+        'create_group': ('group_name',),
         'start_voice': ('chat_id',),
         'start_video': ('chat_id',),
         'change_username': ('new_username',),
@@ -97,10 +97,8 @@ class Protocol:
         opcode = Protocol.general_opcodes['approve_reject']
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{int(True)}{Protocol.FIELD_SEPARATOR}{target_opcode}"
-        # The message size
-        size = len(msg)
         # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
     @staticmethod
     def reject(target_opcode):
@@ -113,10 +111,7 @@ class Protocol:
         opcode = Protocol.general_opcodes['approve_reject']
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{int(False)}{Protocol.FIELD_SEPARATOR}{target_opcode}"
-        # The message size
-        size = len(msg)
-        # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
     @staticmethod
     def friend_request_notify(sender_username):
@@ -129,10 +124,8 @@ class Protocol:
         opcode = Protocol.general_opcodes['friend_request']
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{sender_username}"
-        # The message size
-        size = len(msg)
         # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
     @staticmethod
     def added_to_group(group_name, chat_id, key):
@@ -148,10 +141,8 @@ class Protocol:
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{group_name}" \
               f"{Protocol.FIELD_SEPARATOR}{chat_id}{Protocol.FIELD_SEPARATOR}{key}"
-        # The message size
-        size = len(msg)
         # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
     @staticmethod
     def voice_started(chat_id):
@@ -164,10 +155,8 @@ class Protocol:
         opcode = Protocol.general_opcodes['voice_call_started']
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{chat_id}"
-        # The message size
-        size = len(msg)
         # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
     @staticmethod
     def video_started(chat_id):
@@ -180,10 +169,8 @@ class Protocol:
         opcode = Protocol.general_opcodes['video_call_started']
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{chat_id}"
-        # The message size
-        size = len(msg)
         # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
     @staticmethod
     def voice_call_info(chat_id, ips, usernames):
@@ -210,10 +197,8 @@ class Protocol:
         # Add the usernames to the message
         for username in usernames[1:]:
             msg += Protocol.LIST_SEPARATOR + username
-        # The message size
-        size = len(msg)
         # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
     @staticmethod
     def video_call_info(chat_id, ips, usernames):
@@ -240,10 +225,8 @@ class Protocol:
         # Add the usernames to the message
         for username in usernames[1:]:
             msg += Protocol.LIST_SEPARATOR + username
-        # The message size
-        size = len(msg)
         # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
     @staticmethod
     def voice_user_joined(chat_id, user_ip, username):
@@ -259,10 +242,8 @@ class Protocol:
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{chat_id}" \
               f"{Protocol.FIELD_SEPARATOR}{user_ip}{Protocol.FIELD_SEPARATOR}{username}"
-        # The message size
-        size = len(msg)
         # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
     @staticmethod
     def video_user_joined(chat_id, user_ip, username):
@@ -278,10 +259,8 @@ class Protocol:
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{chat_id}" \
               f"{Protocol.FIELD_SEPARATOR}{user_ip}{Protocol.FIELD_SEPARATOR}{username}"
-        # The message size
-        size = len(msg)
         # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
     @staticmethod
     def chats_list(chats):
@@ -304,10 +283,8 @@ class Protocol:
         # Add the usernames list
         for username in usernames[1:]:
             msg += Protocol.LIST_SEPARATOR + username
-        # The message size
-        size = len(msg)
         # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
     @staticmethod
     def user_status(username, status):
@@ -321,11 +298,10 @@ class Protocol:
         opcode = Protocol.general_opcodes['user_status']
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{username}{Protocol.FIELD_SEPARATOR}{status}"
-        # The message size
-        size = len(msg)
         # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
+    @staticmethod
     def friend_added(friend_username):
         """
 
@@ -336,10 +312,8 @@ class Protocol:
         opcode = Protocol.general_opcodes['friend_added']
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{friend_username}"
-        # The message size
-        size = len(msg)
         # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
     @staticmethod
     def send_file(chat_id, file_name, file):
@@ -355,10 +329,8 @@ class Protocol:
         # Construct the message
         msg = f"{kind}{Protocol.FIELD_SEPARATOR}{len(file)}{Protocol.FIELD_SEPARATOR}{chat_id}" \
               f"{Protocol.FIELD_SEPARATOR}{file_name}{Protocol.FIELD_SEPARATOR}{file}"
-        # The message size
-        size = len(msg) - len(file)
         # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
     @staticmethod
     def profile_picture(profile_username, image):
@@ -373,10 +345,8 @@ class Protocol:
         # Construct the message
         msg = f"{kind}{Protocol.FIELD_SEPARATOR}{len(image)}{Protocol.FIELD_SEPARATOR}{profile_username}" \
               f"{Protocol.FIELD_SEPARATOR}{image}"
-        # The message size
-        size = len(msg) - len(image)
         # Return the message after protocol
-        return f'{str(size).zfill(2)}{msg}'
+        return msg
 
     @staticmethod
     def unprotocol_msg(type, raw_message):
@@ -398,21 +368,27 @@ class Protocol:
 
         # If the message was received in the general messages channel
         if type == 'general':
-            # The first value in the dict is the opcode's name (opname)
-            opcode_name = Protocol.c_general_opcodes[opcode]
-            ret['opname'] = opcode_name
+            if opcode in Protocol.c_general_opcodes.keys():
+                # The first value in the dict is the opcode's name (opname)
+                opcode_name = Protocol.c_general_opcodes[opcode]
+                ret['opname'] = opcode_name
+                ret['opcode'] = opcode
 
         # If the message was received in the chat messages channel
         elif type == 'chat':
-            # The first value in the dict is the opcode's name (opname)
-            opcode_name = Protocol.c_chat_opcodes[opcode]
-            ret['opname'] = opcode_name
+            if opcode in Protocol.c_chat_opcodes.keys():
+                # The first value in the dict is the opcode's name (opname)
+                opcode_name = Protocol.c_chat_opcodes[opcode]
+                ret['opname'] = opcode_name
+                ret['opcode'] = opcode
 
         # If the message was received in the files messages channel
         elif type == 'files':
-            # The first value in the dict is the opcode's name (opname)
-            opcode_name = Protocol.c_files_opcodes[opcode]
-            ret['opname'] = opcode_name
+            if opcode in Protocol.c_files_opcodes.keys():
+                # The first value in the dict is the opcode's name (opname)
+                opcode_name = Protocol.c_files_opcodes[opcode]
+                ret['opname'] = opcode_name
+                ret['opcode'] = opcode
 
         # Get the parameters names of the message
         params_names = Protocol.c_opcodes_params[Protocol.c_general_opcodes[opcode]]
@@ -438,6 +414,12 @@ class Protocol:
                 else:
                     ret[param_name] = value
         return ret
+
+
+if __name__ == '__main__':
+    data = "01@doron@12323k"
+    ret = Protocol.unprotocol_msg("general", data)
+    print(ret)
 
 
 
