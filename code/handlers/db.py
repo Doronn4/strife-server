@@ -402,6 +402,21 @@ class DBHandler:
         result = self.cursor.fetchall()
         return len(result) == 1
 
+    def get_group_members(self, chat_id):
+        sql = """
+        SELECT users_table.username 
+        FROM participants_table 
+        INNER JOIN users_table 
+        ON participants_table.participant_unique_id = users_table.unique_id 
+        WHERE participants_table.chat_id = ?;
+        """
+        self.cursor.execute(sql, [chat_id])
+        result = self.cursor.fetchall()
+
+        result = [_[0] for _ in result]
+
+        return result
+
     def _get_unique_id(self, username):
         """
         Get the unique id of a user
@@ -496,4 +511,9 @@ if __name__ == '__main__':
     my_db.add_friend('doron2', 'itay3108')
     my_db.add_friend('doron2', 'itamar')
     print(my_db.get_friends_of('doron2'))
+
+    id = my_db.create_group('iftah fans', 'itay3108')
+    my_db.add_to_group(id, 'itay3108', 'doron2')
+
+    print(my_db.get_group_members(id))
 

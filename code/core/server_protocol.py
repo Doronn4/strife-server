@@ -83,7 +83,8 @@ class Protocol:
         'request_group_members': ('chat_id',),
         'request_user_picture': ('pfp_username',),
         'request_user_status': ('username',),
-        'request_chats': ()
+        'request_chats': (),
+        'text_message': ('sender_username', 'message')
     }
 
     @staticmethod
@@ -356,12 +357,19 @@ class Protocol:
         :param raw_message:
         :return:
         """
-        # Split the message into it's fields with the field separator
-        values = raw_message.split(Protocol.FIELD_SEPARATOR)
+        chat_id = None
+        opcode_name = ''
 
-        # Get the opcode of the message
-        opcode = int(values[0])
-        values = values[1:]
+        if type != 'chats':
+            # Split the message into it's fields with the field separator
+            values = raw_message.split(Protocol.FIELD_SEPARATOR)
+            # Get the opcode of the message
+            opcode = int(values[0])
+            values = values[1:]
+        else:
+            opcode = int(raw_message[0])
+            chat_id = int(raw_message[1:4])
+            values = raw_message[5:].split(Protocol.FIELD_SEPARATOR)
 
         # The returned dict
         ret = {}
@@ -375,12 +383,13 @@ class Protocol:
                 ret['opcode'] = opcode
 
         # If the message was received in the chat messages channel
-        elif type == 'chat':
+        elif type == 'chats':
             if opcode in Protocol.c_chat_opcodes.keys():
                 # The first value in the dict is the opcode's name (opname)
                 opcode_name = Protocol.c_chat_opcodes[opcode]
                 ret['opname'] = opcode_name
                 ret['opcode'] = opcode
+                ret['chat_id'] = chat_id
 
         # If the message was received in the files messages channel
         elif type == 'files':
@@ -391,7 +400,7 @@ class Protocol:
                 ret['opcode'] = opcode
 
         # Get the parameters names of the message
-        params_names = Protocol.c_opcodes_params[Protocol.c_general_opcodes[opcode]]
+        params_names = Protocol.c_opcodes_params[opcode_name]
 
         # Assign a value for each parameter in a dict
         for i in range(len(values)):

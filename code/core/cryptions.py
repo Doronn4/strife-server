@@ -1,10 +1,5 @@
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Cipher import PKCS1_v1_5
-from hashlib import sha256
-from base64 import b64encode, b64decode
-from Cryptodome.Random import get_random_bytes, new as Random
-from Cryptodome.Util.Padding import unpad
-import rsa
 import os
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -15,19 +10,16 @@ class RSACipher:
     """
     A class for encrypting and decrypting data in RSA
     """
-    KEY_SIZE = 1024
+    KEY_SIZE = 1024*2
 
     def __init__(self):
         """
         Creates an ASYM object for encryption and decryption
-        :param private_key: The private key to use for decrypting messages
         """
-        # self.public_key, self.private_key = self.generate_keys()
-        # self.public_key: rsa.PublicKey
-        self.RSA_key = RSA.generate(1024)
+        self.RSA_key = RSA.generate(RSACipher.KEY_SIZE)
         self.RSA_cipher = PKCS1_v1_5.new(self.RSA_key)
 
-    def encrypt(self, data, public_key):
+    def encrypt(self, data: str, public_key):
         """
         Encrypts a message/data with the given public key
         :param data: The data to encrypt
@@ -37,12 +29,11 @@ class RSACipher:
         if type(data) == str:
             data = data.encode()
 
-        data = b64encode(data)
         imported_key = RSA.import_key(public_key)
         # Encrypting data
         rsa_encryption_cipher = PKCS1_v1_5.new(imported_key)
-        ciphertext = rsa_encryption_cipher.encrypt(data)
-        return b64encode(ciphertext)
+        cipherbytes = rsa_encryption_cipher.encrypt(data)
+        return cipherbytes
 
     def decrypt(self, data):
         """
@@ -50,21 +41,20 @@ class RSACipher:
         :param data: The data to decrypt
         :return: The decrypted data
         """
-        data = b64decode(data)
-        data = self.RSA_cipher.decrypt(data, 16)
-        return b64decode(data)
+        data = self.RSA_cipher.decrypt(data, None, 0)
+        return data
 
-    def get_string_public_key(self):
-        return self.RSA_key.publickey().exportKey()
+    def get_string_public_key(self) -> str:
+        """
+        Returns a string representation using PEM encoding for the server's public key
+        """
+        return self.RSA_key.publickey().exportKey().decode()
 
-    def get_public_key_from_string(self, key):
+    def get_public_key_from_string(self, key: str):
+        """
+        Returns a public key from a PEM encoded string
+        """
         return RSA.import_key(key)
-
-    @staticmethod
-    def generate_keys():
-        public_key, private_key = rsa.newkeys(RSACipher.KEY_SIZE)
-
-        return public_key, private_key
 
 
 class AESCipher:
@@ -173,9 +163,15 @@ if __name__ == '__main__':
 
     # TESt rsa
     my_rsa = RSACipher()
-    raw = 'hello i am doron!'
-    enc = my_rsa.encrypt(raw, my_rsa.get_string_public_key())
-    #print(enc)
-    dec = my_rsa.decrypt(enc).decode()
-    #print(dec)
-    assert raw == dec
+    raw = '02@m@m'
+    k = """-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsTJKt3FPrQjn/Ju85M2Y
+wKLNvwi3dOdQt+2OJyu6yRzlhr5no25vkG1Epg1S9RuMzlP2239sXJEvE1N091WT
+uCrJ4UzjkJvJox2wa44QHNHa1hA5C+Cqk+XwRyL01+sJGeeGLTZXaZqe1ZecGACz
+QeZra+2+lmpw0kN7NVsPnLpFrxZYxuEcdwN9FJJz1XrwYMnACJIJV++Oqu9D72Mr
+/EezlYLIBG4qflF9NUNUT/EAYP+SBaZ/F1NnK2ZB0WXCQSFvSmoka4W5rV2zAGUV
+bQ/hD6cwUEw+2i1/HyuvosFzQLv9IlL11/nlb824UOKf03y5IAYc7EQJrw1hSbdS
+6QIDAQAB
+-----END PUBLIC KEY-----"""
+    enc = my_rsa.encrypt(raw, k)
+    print(enc.decode())

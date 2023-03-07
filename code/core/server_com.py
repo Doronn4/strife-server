@@ -10,7 +10,7 @@ class ServerCom:
     Class that handles the communication between the server and the clients.
     """
 
-    def __init__(self, server_port: int, message_queue: queue.Queue):
+    def __init__(self, server_port: int, message_queue: queue.Queue, com_type: str = 'general'):
         """
         Creates a server object for communicating with clients
         :param server_port: The server port
@@ -22,6 +22,7 @@ class ServerCom:
         self.socket = None  # The socket of the server
         self.open_clients = {}  # [soc]:[ip, key]
         self.rsa = RSACipher()  # The RSA encryption and decryption object
+        self.com_type = com_type
 
         # Start the main loop in a thread
         threading.Thread(target=self._main).start()
@@ -43,7 +44,8 @@ class ServerCom:
                 if current_socket is self.socket:
                     # Connecting a new client
                     client, addr = self.socket.accept()
-                    print('INFO: new client trying to connect', addr)
+                    ip = addr[0]
+                    print(f'{self.com_type.upper()}: new client trying to connect', ip)
                     # Start a thread to swap keys with the client
                     threading.Thread(target=self._change_keys, args=(client, addr[0],)).start()
 
@@ -65,13 +67,19 @@ class ServerCom:
 
                     else:
                         if data == '':
+                            print('empty data error')
                             # Client disconnected
                             self._close_client(current_socket)
                         else:
-                            # Decrypt the data and decode it back to a string
-                            dec_data = self.rsa.decrypt(data).decode()
-                            # Add the message to the queue
-                            self.message_queue.put((dec_data, self.open_clients[current_socket][0]))
+                            try:
+                                # Decrypt the data and decode it back to a string
+                                dec_data = self.rsa.decrypt(data).decode()
+                            except Exception as e:
+                                print('dec error', e)
+                                self._close_client(current_socket)
+                            else:
+                                # Add the message to the queue
+                                self.message_queue.put((dec_data, self.open_clients[current_socket][0]))
 
     def _change_keys(self, client: socket.socket, ip: str):
         """
@@ -84,7 +92,7 @@ class ServerCom:
             # Get the server's public key in a string
             key = self.rsa.get_string_public_key()
             # Send the server's public key to the client
-            client.send(key)
+            client.send(key.encode())
             # Receive the client's public key and decode it into a string
             client_key = client.recv(1024).decode()
             # Convert the client's key from a string to a publicKey object
@@ -93,14 +101,13 @@ class ServerCom:
         except Exception as e:
             # Handle exceptions
             print(e)
-            print('INFO: Change keys with', ip, 'unsuccessful')
+            print(f'{self.com_type.upper()}: Change keys with', ip, 'unsuccessful')
             self._close_client(client)
 
         else:
             # Add the client to the dict of connected clients and save his ip and public key
             self.open_clients[client] = [ip, client_rsa_key]
-            print('INFO: Changed keys successfully with', ip)
-            print('INFO: new client connected', ip)
+            print(f'{self.com_type.upper()}: Changed keys successfully with', ip)
 
     def receive_file(self, from_addr: str, size: int):
         """
@@ -150,7 +157,7 @@ class ServerCom:
 
         return ret_sock
 
-    def send_data(self, data, dst_addr: str):
+    def send_data(self, data, dst_addr):
         """
         Send data to a client or a list of clients
         :param data: The data to send
@@ -179,6 +186,7 @@ class ServerCom:
                     # send the encrypted data
                     soc.send(enc_data)
                 except socket.error:
+                    print('send data error')
                     # close the client, remove it from the list of open clients
                     self._close_client(soc)
 
@@ -190,7 +198,7 @@ class ServerCom:
         """
 
         if client_socket in self.open_clients.keys():
-            print('INFO: client disconnected', self.open_clients[client_socket][0])
+            print(f'{self.com_type.upper()}: client disconnected', self.open_clients[client_socket][0])
 
         if client_socket in self.open_clients.keys():
             del self.open_clients[client_socket]
@@ -210,4 +218,3 @@ class ServerCom:
                 break
 
         return flag
-
