@@ -12,16 +12,16 @@ class Protocol:
         'approve_reject': 1,  # All
         'friend_request': 2,  # Friendlist
         'added_to_group': 3,  # Chats
-        'voice_call_started': 5,  # Call
-        'video_call_started': 6,  # Call
-        'voice_call_info': 7,  # Call
-        'video_call_info': 8,  # Call
-        'voice_user_joined': 9,  # Call
-        'video_user_joined': 10,  # Call
-        'chats_list': 11,  # Chats
-        'group_members': 12,  # Chats
-        'user_status': 13,  # Chats
-        'friend_added': 14  # Friendlst
+        'voice_call_started': 4,  # Call
+        'video_call_started': 5,  # Call
+        'voice_call_info': 6,  # Call
+        'video_call_info': 7,  # Call
+        'voice_user_joined': 8,  # Call
+        'video_user_joined': 9,  # Call
+        'chats_list': 10,  # Chats
+        'group_members': 11,  # Chats
+        'user_status': 12,  # Chats
+        'friend_added': 13  # Friendlst
     }
     chat_opcodes = {
         'text_message': 1,  # Chats
@@ -84,15 +84,15 @@ class Protocol:
         'request_user_picture': ('pfp_username',),
         'request_user_status': ('username',),
         'request_chats': (),
-        'text_message': ('sender_username', 'message')
+        'text_message': ('chat_id', 'sender_username', 'message')
     }
 
     @staticmethod
     def approve(target_opcode):
         """
         Constructs an approve msg with the protocol
-        :param target_opcode:
-        :return:
+        :param target_opcode: the opcode of the operation that was approved
+        :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['approve_reject']
@@ -104,9 +104,9 @@ class Protocol:
     @staticmethod
     def reject(target_opcode):
         """
-        Constructs an approve msg with the protocol
-        :param target_opcode:
-        :return:
+        Constructs a reject msg with the protocol
+        :param target_opcode: the opcode of the operation that was rejected
+        :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['approve_reject']
@@ -117,9 +117,9 @@ class Protocol:
     @staticmethod
     def friend_request_notify(sender_username):
         """
-        Constructs an approve msg with the protocol
-        :param sender_username:
-        :return:
+        Constructs a message to indicate that the user has received a friend request
+        :param sender_username: The username of the requester
+        :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['friend_request']
@@ -131,11 +131,11 @@ class Protocol:
     @staticmethod
     def added_to_group(group_name, chat_id, key):
         """
-        Constructs an approve msg with the protocol
-        :param group_name:
-        :param chat_id:
-        :param key:
-        :return:
+        Constructs a message to indicate that the user has been added to a group
+        :param group_name: The name of the group
+        :param chat_id: The chat id of the group
+        :param key: The group's aes key
+        :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['added_to_group']
@@ -148,9 +148,9 @@ class Protocol:
     @staticmethod
     def voice_started(chat_id):
         """
-        Constructs an approve msg with the protocol
+
         :param chat_id:
-        :return:
+        :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['voice_call_started']
@@ -162,9 +162,9 @@ class Protocol:
     @staticmethod
     def video_started(chat_id):
         """
-        Constructs an approve msg with the protocol
+
         :param chat_id:
-        :return:
+        :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['video_call_started']
@@ -180,7 +180,7 @@ class Protocol:
         :param chat_id:
         :param ips:
         :param usernames:
-        :return:
+        :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['voice_call_info']
@@ -208,7 +208,7 @@ class Protocol:
         :param chat_id:
         :param ips:
         :param usernames:
-        :return:
+        :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['video_call_info']
@@ -236,7 +236,7 @@ class Protocol:
         :param chat_id:
         :param user_ip:
         :param username:
-        :return:
+        :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['voice_user_joined']
@@ -253,7 +253,7 @@ class Protocol:
         :param chat_id:
         :param user_ip:
         :param username:
-        :return:
+        :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['video_user_joined']
@@ -273,7 +273,7 @@ class Protocol:
 
         :param chat_id:
         :param usernames:
-        :return:
+        :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['group_members']
@@ -293,7 +293,7 @@ class Protocol:
 
         :param username:
         :param status:
-        :return:
+        :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['user_status']
@@ -307,7 +307,7 @@ class Protocol:
         """
 
         :param friend_username:
-        :return:
+        :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['friend_added']
@@ -323,7 +323,7 @@ class Protocol:
         :param chat_id:
         :param file_name:
         :param file:
-        :return:
+        :return: the constructed message
         """
         # Get the opcode of register
         kind = Protocol.files_opcodes['send_file']
@@ -339,7 +339,7 @@ class Protocol:
 
         :param profile_username:
         :param image:
-        :return:
+        :return: the constructed message
         """
         # Get the opcode of register
         kind = Protocol.files_opcodes['send_file']
@@ -350,26 +350,21 @@ class Protocol:
         return msg
 
     @staticmethod
-    def unprotocol_msg(type, raw_message):
+    def unprotocol_msg(type: str, raw_message: str):
         """
         Deconstructs a message received from the client with the client-server's protocol
-        :param type:
-        :param raw_message:
-        :return:
+        :param type: The type of the message (general / chats / files)
+        :param raw_message: The raw message string that was sent
+        :return: a dict of the parameters' names as the keys and their values as the values
         """
         chat_id = None
         opcode_name = ''
 
-        if type != 'chats':
-            # Split the message into it's fields with the field separator
-            values = raw_message.split(Protocol.FIELD_SEPARATOR)
-            # Get the opcode of the message
-            opcode = int(values[0])
-            values = values[1:]
-        else:
-            opcode = int(raw_message[0])
-            chat_id = int(raw_message[1:4])
-            values = raw_message[5:].split(Protocol.FIELD_SEPARATOR)
+        # Split the message into it's fields with the field separator
+        values = raw_message.split(Protocol.FIELD_SEPARATOR)
+        # Get the opcode of the message
+        opcode = int(values[0])
+        values = values[1:]
 
         # The returned dict
         ret = {}

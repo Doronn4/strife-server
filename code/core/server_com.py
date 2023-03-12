@@ -186,7 +186,6 @@ class ServerCom:
                     # send the encrypted data
                     soc.send(enc_data)
                 except socket.error:
-                    print('send data error')
                     # close the client, remove it from the list of open clients
                     self._close_client(soc)
 
@@ -199,8 +198,9 @@ class ServerCom:
 
         if client_socket in self.open_clients.keys():
             print(f'{self.com_type.upper()}: client disconnected', self.open_clients[client_socket][0])
-
-        if client_socket in self.open_clients.keys():
+            # Let the main program know that a user has disconnected by sending an empty message
+            self.message_queue.put(('', self.open_clients[client_socket][0]))
+            # Delete the user from the dict of open clients
             del self.open_clients[client_socket]
 
         client_socket.close()

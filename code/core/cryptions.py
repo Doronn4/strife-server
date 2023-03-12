@@ -4,6 +4,7 @@ import os
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
+import hashlib
 
 
 class RSACipher:
@@ -144,7 +145,7 @@ class AESCipher:
         Generates a random 32 bytes combination
         :return: A random 32 bytes combination
         """
-        return os.urandom(32)
+        return hashlib.sha256(os.urandom(32)).hexdigest()
 
 
 if __name__ == '__main__':

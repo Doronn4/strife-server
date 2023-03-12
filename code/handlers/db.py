@@ -99,7 +99,7 @@ class DBHandler:
               f" primary key (user_id, friend_id))"
         self.cursor.execute(sql)
 
-    def add_user(self, username, password):
+    def add_user(self, username, password) -> bool:
         """
         Adds a user to the users table.
         :param username: The user's username
@@ -122,7 +122,7 @@ class DBHandler:
 
         return flag
 
-    def _user_exists(self, username):
+    def _user_exists(self, username) -> bool:
         """
         Checks if a user exists on the database by his username
         :param username: The username
@@ -149,7 +149,7 @@ class DBHandler:
         Add a pair of friends to the friends table
         :param username: The username of the first friends
         :param friend: The username of the second friend
-        :return:
+        :return: -
         """
         user_id = self._get_unique_id(username)
         friend_id = self._get_unique_id(friend)
@@ -219,7 +219,7 @@ class DBHandler:
 
         return friends
 
-    def _get_username(self, user_id: int):
+    def _get_username(self, user_id: int) -> str:
         """
         Get a username of a user by his id
         :param user_id: The user's id
@@ -310,7 +310,7 @@ class DBHandler:
 
         return result
 
-    def get_group_name(self, chat_id):
+    def get_group_name(self, chat_id) -> str:
         result = None
         if self._group_exists(chat_id):
             sql = f"SELECT group_name from groups_table WHERE chat_id =?"
@@ -347,7 +347,7 @@ class DBHandler:
             self.cursor.execute(sql, [chat_id, unique_id])
             self.con.commit()
 
-    def _add_to_group(self, chat_id, username):
+    def _add_to_group(self, chat_id, username) -> bool:
         """
         Adds a user to a group
         :param chat_id: The chat id of the group
@@ -372,7 +372,7 @@ class DBHandler:
 
         return flag
 
-    def _is_in_group(self, chat_id, username=None, unique_id=None):
+    def _is_in_group(self, chat_id, username=None, unique_id=None) -> bool:
         """
         Check if a user is in a group
         :param chat_id: The chat id of the group
@@ -402,7 +402,14 @@ class DBHandler:
         result = self.cursor.fetchall()
         return len(result) == 1
 
-    def get_group_members(self, chat_id):
+    def get_group_members(self, chat_id) -> list:
+        """
+        Get the members of a group
+        :param chat_id: The group's chat id
+        :type chat_id: int
+        :return: A list of all the group members' usernames
+        :rtype: list
+        """
         sql = """
         SELECT users_table.username 
         FROM participants_table 
@@ -445,6 +452,17 @@ class DBHandler:
         return len(answer) == 1
 
     def add_file(self, chat_id, file_name, file_hash):
+        """
+        Add a file uploaded by a user
+        :param chat_id: The chat id of the chat which the file was uploaded to
+        :type chat_id: int
+        :param file_name: The name of the file
+        :type file_name: str
+        :param file_hash: The hash of the file's contents
+        :type file_hash: str
+        :return: -
+        :rtype: -
+        """
         if not self._group_exists(chat_id):
             raise self.GROUP_DOESNT_EXIST_EXCEPTION
 
@@ -455,6 +473,17 @@ class DBHandler:
         self.con.commit()
 
     def add_message(self, chat_id, sender_username, message: bytes):
+        """
+        Add a message sent on a chat to the database
+        :param chat_id: The chat id
+        :type chat_id: int
+        :param sender_username: The username of the sender
+        :type sender_username: str
+        :param message: The message sent (encrypted)
+        :type message: bytes
+        :return: -
+        :rtype: -
+        """
         if not self._group_exists(chat_id):
             raise self.GROUP_DOESNT_EXIST_EXCEPTION
 
@@ -484,19 +513,37 @@ class DBHandler:
         result = self.cursor.fetchall()
         return len(result) == 1
 
-    def get_chat_history(self, chat_id):
+    def get_chat_history(self, chat_id: int) -> list:
         """
         Get the chat history of a group/chat
         :param chat_id: The chat id
-        :return: A list of
+        :return: A list of every message and it's sender in the chat
+        :rtype: list
         """
         if not self._group_exists(chat_id):
             raise self.GROUP_DOESNT_EXIST_EXCEPTION
 
-        sql = f"SELECT sender_unique_id, message FROM messages_table WHERE chat_id='{chat_id}'"
-        self.cursor.execute(sql)
+        sql = f"SELECT sender_unique_id, message FROM messages_table WHERE chat_id=?"
+        self.cursor.execute(sql, [chat_id])
         result = self.cursor.fetchall()
 
+        return result
+
+    def get_chats_of(self, username: str) -> list:
+        """
+        Get the chats of a user
+        :param username: The username of the user
+        :type username: str
+        :return: A list of the chats' chat ids
+        :rtype: list
+        """
+        # Get the unique id of the user
+        unique_id = self._get_unique_id(username)
+        sql = f"SELECT chat_id FROM participants_table WHERE participant_unique_id=?"
+        self.cursor.execute(sql, [unique_id])
+        result = self.cursor.fetchall()
+        # Make the tuples a single integer
+        result = [_[0] for _ in result]
         return result
 
 
@@ -516,4 +563,5 @@ if __name__ == '__main__':
     my_db.add_to_group(id, 'itay3108', 'doron2')
 
     print(my_db.get_group_members(id))
+    print(my_db.get_chats_of('itay3108'))
 
