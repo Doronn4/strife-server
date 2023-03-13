@@ -4,3 +4,5 @@ code/__pycache__/*
 code/core/__pycache__/*
 code/handlers/__pycache__/*
 code/util/__pycache__/*
+src/handlers/__pycache__/*
+src/__pycache__/*

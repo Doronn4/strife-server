@@ -1,7 +1,7 @@
 import queue
 
-from code.core.server_com import ServerCom
-from code.core.server_protocol import Protocol
+from src.core.server_com import ServerCom
+from src.core.server_protocol import Protocol
 
 q = queue.Queue()
 com = ServerCom(1000, q)

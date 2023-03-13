@@ -1,10 +1,10 @@
 import queue
 import threading
-from code.core.server_com import ServerCom
-from code.core.server_protocol import Protocol
-from code.handlers.db import DBHandler
-from code.core.cryptions import AESCipher
-from code.util.utils import TwoWayDict
+import subprocess
+from src.core.server_com import ServerCom
+from src.core.server_protocol import Protocol
+from src.handlers.db import DBHandler
+from src.core.cryptions import AESCipher
 
 
 def handle_register(com, ip, params):
@@ -36,7 +36,10 @@ def handle_login(com, ip, params):
         db_handle = DBHandler('strife_db')
         username = params['username']
         password = params['password']
-        flag = db_handle.check_credentials(username, password)
+        if username in logged_in_users.values():
+            flag = False
+        else:
+            flag = db_handle.check_credentials(username, password)
         if flag:
             approve_msg = Protocol.approve(params['opcode'])
             com.send_data(approve_msg, ip)
@@ -157,7 +160,7 @@ def handle_text_message(com, ip, params, raw):
         db_handle.add_message(chat_id, sender, message)
         group_members_names = db_handle.get_group_members(chat_id)
 
-        connected_members_ips = [logged_in_users[member_name]
+        connected_members_ips = [get_ip_by_username(member_name)
                                  for member_name in group_members_names
                                  if member_name in logged_in_users.values()]
 
@@ -188,7 +191,8 @@ def handle_general_messages(com, q):
 
         # If a user has disconnected
         if data == '':
-            del logged_in_users[ip]
+            if ip in logged_in_users.keys():
+                del logged_in_users[ip]
 
         else:
             try:
@@ -224,6 +228,14 @@ def handle_files_messages(com, q):
                 files_dict[msg['opname']](com, ip, msg)
 
 
+def get_ip_by_username(username):
+    return [target_ip for target_ip, name in logged_in_users.items() if name==username][0]
+
+
+def install_packages():
+    subprocess.call(['pip', 'install', 'pycryptodome', 'cryptography'])
+
+
 general_dict = {
     'register': handle_register,
     'sign_in': handle_login,
@@ -246,10 +258,12 @@ files_dict = {
 
 }
 
-logged_in_users = TwoWayDict()
+logged_in_users = {}
 
 
 def main():
+    install_packages()
+
     # Create the general messages queue
     general_queue = queue.Queue()
     # Create the communication object for the general messages

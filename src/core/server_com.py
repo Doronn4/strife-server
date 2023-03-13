@@ -2,7 +2,7 @@ import socket
 import select
 import queue
 import threading
-from code.core.cryptions import RSACipher
+from src.core.cryptions import RSACipher
 
 
 class ServerCom:
@@ -62,20 +62,18 @@ class ServerCom:
                     # Handle exceptions
                     except ValueError:
                         self._close_client(current_socket)
-                    except socket.error as e:
+                    except socket.error:
                         self._close_client(current_socket)
 
                     else:
                         if data == '':
-                            print('empty data error')
                             # Client disconnected
                             self._close_client(current_socket)
                         else:
                             try:
                                 # Decrypt the data and decode it back to a string
                                 dec_data = self.rsa.decrypt(data).decode()
-                            except Exception as e:
-                                print('dec error', e)
+                            except Exception:
                                 self._close_client(current_socket)
                             else:
                                 # Add the message to the queue
@@ -100,7 +98,6 @@ class ServerCom:
 
         except Exception as e:
             # Handle exceptions
-            print(e)
             print(f'{self.com_type.upper()}: Change keys with', ip, 'unsuccessful')
             self._close_client(client)
 
