@@ -59,7 +59,11 @@ def handle_friend_add(com, ip, params):
         friend_username = params['friend_username']
         adder_username = logged_in_users[ip]
 
-        db_handle.add_friend(adder_username, friend_username)
+        try:
+            db_handle.add_friend(adder_username, friend_username)
+        except Exception:
+            com.send_data(Protocol.reject(params['opcode']), ip)
+
     else:
         com.send_data(Protocol.reject(params['opcode']), ip)
 
@@ -164,7 +168,7 @@ def handle_text_message(com, ip, params, raw):
                                  for member_name in group_members_names
                                  if member_name in logged_in_users.values()]
 
-        com.send_data(connected_members_ips, raw)
+        com.send_data(raw, connected_members_ips)
 
 
 def handle_file_description(com, ip, params, raw):
