@@ -291,6 +291,13 @@ def main():
 
     print('###### Strife server v0.1 started running ######\n')
 
+    while True:
+        input('')
+        msg = Protocol.profile_picture('m')
+        file_contents = open('src/core/logo.png', 'rb').read()
+        files_com.send_data(msg)
+        files_com.send_file(file_contents)
+
 
 if __name__ == '__main__':
     main()

@@ -334,7 +334,7 @@ class Protocol:
         return msg
 
     @staticmethod
-    def profile_picture(profile_username, image):
+    def profile_picture(profile_username):
         """
 
         :param profile_username:
@@ -342,10 +342,9 @@ class Protocol:
         :return: the constructed message
         """
         # Get the opcode of register
-        kind = Protocol.files_opcodes['send_file']
+        kind = Protocol.files_opcodes['user_profile_picture']
         # Construct the message
-        msg = f"{kind}{Protocol.FIELD_SEPARATOR}{len(image)}{Protocol.FIELD_SEPARATOR}{profile_username}" \
-              f"{Protocol.FIELD_SEPARATOR}{image}"
+        msg = f"{kind}{Protocol.FIELD_SEPARATOR}{profile_username}"
         # Return the message after protocol
         return msg
 

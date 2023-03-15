@@ -2,7 +2,7 @@ import socket
 import select
 import queue
 import threading
-from src.core.cryptions import RSACipher
+from src.core.cryptions import RSACipher, AESCipher
 
 
 class ServerCom:
@@ -23,6 +23,7 @@ class ServerCom:
         self.open_clients = {}  # [soc]:[ip, key]
         self.rsa = RSACipher()  # The RSA encryption and decryption object
         self.com_type = com_type
+        self.clients_keys = {}
 
         # Start the main loop in a thread
         threading.Thread(target=self._main).start()
@@ -61,6 +62,7 @@ class ServerCom:
 
                     # Handle exceptions
                     except ValueError:
+                        print('value error')
                         self._close_client(current_socket)
                     except socket.error:
                         self._close_client(current_socket)
@@ -68,12 +70,14 @@ class ServerCom:
                     else:
                         if data == '':
                             # Client disconnected
+                            print('empty')
                             self._close_client(current_socket)
                         else:
                             try:
                                 # Decrypt the data and decode it back to a string
-                                dec_data = self.rsa.decrypt(data).decode()
+                                dec_data = AESCipher.decrypt(self.open_clients[current_socket][1], data)
                             except Exception:
+                                print('dec error')
                                 self._close_client(current_socket)
                             else:
                                 # Add the message to the queue
@@ -95,6 +99,11 @@ class ServerCom:
             client_key = client.recv(1024).decode()
             # Convert the client's key from a string to a publicKey object
             client_rsa_key = client_key
+            # Create a new aes key with the client
+            aes_key = AESCipher.generate_key()
+            enc_aes_key = self.rsa.encrypt(aes_key, client_rsa_key)
+            # Send the key to the client
+            client.send(enc_aes_key)
 
         except Exception as e:
             # Handle exceptions
@@ -103,7 +112,7 @@ class ServerCom:
 
         else:
             # Add the client to the dict of connected clients and save his ip and public key
-            self.open_clients[client] = [ip, client_rsa_key]
+            self.open_clients[client] = [ip, aes_key]
             print(f'{self.com_type.upper()}: Changed keys successfully with', ip)
 
     def receive_file(self, from_addr: str, size: int):
@@ -165,9 +174,35 @@ class ServerCom:
         if type(dst_addr) != list:
             dst_addr = [dst_addr]
 
-        # Make the data a byte array
-        if type(data) == str:
-            data = data.encode()
+        # Loop over all of the ips to send to
+        for ip in dst_addr:
+            # The the socket of the ip
+            soc = self._get_sock_by_ip(ip)
+            # Check if the socket is still connected to the server
+            if soc and soc in self.open_clients.keys():
+                try:
+                    # encrypt the data
+                    enc_data = AESCipher.encrypt(self.open_clients[soc][1], data).encode()
+                    # Send the length of the data
+                    soc.send(str(len(enc_data)).zfill(4).encode())
+                    # send the encrypted data
+                    print(enc_data)
+                    print(type(enc_data))
+                    soc.send(enc_data)
+                except socket.error:
+                    # close the client, remove it from the list of open clients
+                    self._close_client(soc)
+
+    def send_file(self, contents: bytes, dst_addr):
+        """
+        Send data to a client or a list of clients
+        :param contents: The data to send
+        :param dst_addr: The destination ip
+        :return: -
+        """
+        # Make the dst_addr a list
+        if type(dst_addr) != list:
+            dst_addr = [dst_addr]
 
         # Loop over all of the ips to send to
         for ip in dst_addr:
@@ -177,9 +212,9 @@ class ServerCom:
             if soc and soc in self.open_clients.keys():
                 try:
                     # encrypt the data
-                    enc_data = self.rsa.encrypt(data, self.open_clients[soc][1])
+                    enc_data = AESCipher.encrypt_file(self.open_clients[soc][1], contents)
                     # Send the length of the data
-                    soc.send(str(len(enc_data)).zfill(4).encode())
+                    soc.send(str(len(enc_data)).zfill(10).encode())
                     # send the encrypted data
                     soc.send(enc_data)
                 except socket.error:

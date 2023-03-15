@@ -1,9 +1,8 @@
+import base64
+from Cryptodome.Cipher import AES
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Cipher import PKCS1_v1_5
 import os
-from cryptography.hazmat.primitives import padding
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
 import hashlib
 
 
@@ -62,82 +61,69 @@ class AESCipher:
     """
     A class for encrypting and decrypting using AES
     """
+    BLOCK_SIZE = 16
 
-    def __init__(self):
-        # AES block size
-        self.BLOCK_SIZE = 128
+    # AES 'pad' byte array to multiple of BLOCK_SIZE bytes
+    @staticmethod
+    def pad(byte_array):
+        pad_len = AESCipher.BLOCK_SIZE - len(byte_array) % AESCipher.BLOCK_SIZE
+        return byte_array + (bytes([pad_len]) * pad_len)
 
-    def encrypt(self, data: bytes, key: bytes) -> bytes:
-        """
-        Encrypts the data with the given key using AES
-        :param data: The data to encrypt
-        :param key: The key to encrypt with
-        :return: The encrypted data
-        """
-        # Generate a random initialization vector (IV)
-        iv = os.urandom(16)
-
-        # Create a cipher object using the key and IV
-        cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
-
-        # Encrypt the data
-        encryptor = cipher.encryptor()
-        padded_data = self._pad(data, self.BLOCK_SIZE)
-        ciphertext = encryptor.update(padded_data) + encryptor.finalize()
-
-        # Return the IV and ciphertext as a single message
-        return iv + ciphertext
-
-    def decrypt(self, data: bytes, key: bytes) -> bytes:
-        """
-        Decrypts the data with the given key using AES
-        :param data: The data to decrypt
-        :param key: The key to decrypt with
-        :return: The decrypted data
-        """
-        # Split the message into the IV and ciphertext
-        iv = data[:16]
-        cipher_data = data[16:]
-
-        # Create a cipher object using the key and IV
-        cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
-
-        # Decrypt the ciphertext
-        decrypter = cipher.decryptor()
-        padded_data = decrypter.update(cipher_data) + decrypter.finalize()
-
-        # Remove padding
-        decrypted = self._unpad(padded_data, self.BLOCK_SIZE)
-
-        return decrypted
+    # Remove padding at end of byte array
+    @staticmethod
+    def unpad(byte_array):
+        last_byte = byte_array[-1]
+        return byte_array[0:-last_byte]
 
     @staticmethod
-    def _pad(data: bytes, block_size: int) -> bytes:
+    def encrypt(key, message):
         """
-        Pads the data to the specified block size
-        :param data: The data to pad
-        :param block_size: The block size
-        :return: The padded data
+        Input String, return base64 encoded encrypted String
         """
-        # Use PKCS#7 padding
-        padder = padding.PKCS7(block_size).padder()
-        padded_data = padder.update(data)
-        padded_data += padder.finalize()
-        return padded_data
+
+        byte_array = message.encode("UTF-8")
+
+        padded = AESCipher.pad(byte_array)
+
+        # generate a random iv and prepend that to the encrypted result.
+        # The recipient then needs to unpack the iv and use it.
+        iv = os.urandom(AES.block_size)
+        cipher = AES.new(key.encode("UTF-8"), AES.MODE_CBC, iv)
+        encrypted = cipher.encrypt(padded)
+        # Note we PREPEND the unencrypted iv to the encrypted message
+        return base64.b64encode(iv + encrypted).decode("UTF-8")
 
     @staticmethod
-    def _unpad(padded_data: bytes, block_size: int) -> bytes:
+    def encrypt_file(key, contents: bytes):
+        padded = AESCipher.pad(contents)
+
+        # generate a random iv and prepend that to the encrypted result.
+        # The recipient then needs to unpack the iv and use it.
+        iv = os.urandom(AES.block_size)
+        cipher = AES.new(key.encode("UTF-8"), AES.MODE_CBC, iv)
+        encrypted = cipher.encrypt(padded)
+        # Note we PREPEND the unencrypted iv to the encrypted message
+        return base64.b64encode(iv + encrypted)
+
+    @staticmethod
+    def decrypt(key, message):
         """
-        Unpads the data
-        :param padded_data: The padded data
-        :param block_size: The block size
-        :return: The unpadded data
+        Input encrypted bytes, return decrypted bytes, using iv and key
         """
-        # Use PKCS#7 padding
-        unpadder = padding.PKCS7(block_size).unpadder()
-        data = unpadder.update(padded_data)
-        data += unpadder.finalize()
-        return data
+
+        byte_array = base64.b64decode(message)
+
+        iv = byte_array[0:16]  # extract the 16-byte initialization vector
+
+        messagebytes = byte_array[16:]  # encrypted message is the bit after the iv
+
+        cipher = AES.new(key.encode("UTF-8"), AES.MODE_CBC, iv)
+
+        decrypted_padded = cipher.decrypt(messagebytes)
+
+        decrypted = AESCipher.unpad(decrypted_padded)
+
+        return decrypted.decode("UTF-8");
 
     @staticmethod
     def generate_key():
@@ -145,7 +131,7 @@ class AESCipher:
         Generates a random 32 bytes combination
         :return: A random 32 bytes combination
         """
-        return hashlib.sha256(os.urandom(32)).hexdigest()
+        return hashlib.sha256(os.urandom(32)).hexdigest()[:32]
 
 
 if __name__ == '__main__':
@@ -163,16 +149,5 @@ if __name__ == '__main__':
     # assert dec == raw
 
     # TESt rsa
-    my_rsa = RSACipher()
-    raw = '02@m@m'
-    k = """-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsTJKt3FPrQjn/Ju85M2Y
-wKLNvwi3dOdQt+2OJyu6yRzlhr5no25vkG1Epg1S9RuMzlP2239sXJEvE1N091WT
-uCrJ4UzjkJvJox2wa44QHNHa1hA5C+Cqk+XwRyL01+sJGeeGLTZXaZqe1ZecGACz
-QeZra+2+lmpw0kN7NVsPnLpFrxZYxuEcdwN9FJJz1XrwYMnACJIJV++Oqu9D72Mr
-/EezlYLIBG4qflF9NUNUT/EAYP+SBaZ/F1NnK2ZB0WXCQSFvSmoka4W5rV2zAGUV
-bQ/hD6cwUEw+2i1/HyuvosFzQLv9IlL11/nlb824UOKf03y5IAYc7EQJrw1hSbdS
-6QIDAQAB
------END PUBLIC KEY-----"""
-    enc = my_rsa.encrypt(raw, k)
-    print(enc.decode())
+    key = AESCipher.generate_key()
+    print(len(key))
