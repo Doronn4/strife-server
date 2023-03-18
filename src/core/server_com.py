@@ -10,7 +10,7 @@ class ServerCom:
     Class that handles the communication between the server and the clients.
     """
 
-    def __init__(self, server_port: int, message_queue: queue.Queue, com_type: str = 'general'):
+    def __init__(self, server_port: int, message_queue: queue.Queue, com_type: str = 'general', log=False):
         """
         Creates a server object for communicating with clients
         :param server_port: The server port
@@ -24,6 +24,7 @@ class ServerCom:
         self.rsa = RSACipher()  # The RSA encryption and decryption object
         self.com_type = com_type
         self.clients_keys = {}
+        self.log = log
 
         # Start the main loop in a thread
         threading.Thread(target=self._main).start()
@@ -46,7 +47,8 @@ class ServerCom:
                     # Connecting a new client
                     client, addr = self.socket.accept()
                     ip = addr[0]
-                    print(f'{self.com_type.upper()}: new client trying to connect', ip)
+                    if self.log:
+                        print(f'{self.com_type.upper()}: new client trying to connect', ip)
                     # Start a thread to swap keys with the client
                     threading.Thread(target=self._change_keys, args=(client, addr[0],)).start()
 
@@ -62,7 +64,6 @@ class ServerCom:
 
                     # Handle exceptions
                     except ValueError:
-                        print('value error')
                         self._close_client(current_socket)
                     except socket.error:
                         self._close_client(current_socket)
@@ -70,14 +71,12 @@ class ServerCom:
                     else:
                         if data == '':
                             # Client disconnected
-                            print('empty')
                             self._close_client(current_socket)
                         else:
                             try:
                                 # Decrypt the data and decode it back to a string
                                 dec_data = AESCipher.decrypt(self.open_clients[current_socket][1], data)
                             except Exception:
-                                print('dec error')
                                 self._close_client(current_socket)
                             else:
                                 # Add the message to the queue
@@ -107,13 +106,15 @@ class ServerCom:
 
         except Exception as e:
             # Handle exceptions
-            print(f'{self.com_type.upper()}: Change keys with', ip, 'unsuccessful')
+            if self.log:
+                print(f'{self.com_type.upper()}: Change keys with', ip, 'unsuccessful')
             self._close_client(client)
 
         else:
             # Add the client to the dict of connected clients and save his ip and public key
             self.open_clients[client] = [ip, aes_key]
-            print(f'{self.com_type.upper()}: Changed keys successfully with', ip)
+            if self.log:
+                print(f'{self.com_type.upper()}: Changed keys successfully with', ip)
 
     def receive_file(self, from_addr: str, size: int):
         """
@@ -186,8 +187,6 @@ class ServerCom:
                     # Send the length of the data
                     soc.send(str(len(enc_data)).zfill(4).encode())
                     # send the encrypted data
-                    print(enc_data)
-                    print(type(enc_data))
                     soc.send(enc_data)
                 except socket.error:
                     # close the client, remove it from the list of open clients
@@ -229,7 +228,8 @@ class ServerCom:
         """
 
         if client_socket in self.open_clients.keys():
-            print(f'{self.com_type.upper()}: client disconnected', self.open_clients[client_socket][0])
+            if self.log:
+                print(f'{self.com_type.upper()}: client disconnected', self.open_clients[client_socket][0])
             # Let the main program know that a user has disconnected by sending an empty message
             self.message_queue.put(('', self.open_clients[client_socket][0]))
             # Delete the user from the dict of open clients

@@ -123,7 +123,25 @@ class AESCipher:
 
         decrypted = AESCipher.unpad(decrypted_padded)
 
-        return decrypted.decode("UTF-8");
+        return decrypted.decode("UTF-8")
+
+    @staticmethod
+    def decrypt_file(key, contents: bytes):
+        """
+        Input encrypted bytes, return decrypted bytes, using iv and key
+        """
+        contents = base64.b64decode(contents)
+        iv = contents[0:16]  # extract the 16-byte initialization vector
+
+        messagebytes = contents[16:]  # encrypted message is the bit after the iv
+
+        cipher = AES.new(key.encode("UTF-8"), AES.MODE_CBC, iv)
+
+        decrypted_padded = cipher.decrypt(messagebytes)
+
+        decrypted = AESCipher.unpad(decrypted_padded)
+
+        return decrypted
 
     @staticmethod
     def generate_key():

@@ -49,16 +49,22 @@ class FileHandler:
             f.write(resized_pfp)
 
     @staticmethod
-    def load_pfp(username):
+    def load_pfp(username=None, path=None):
         """
         Loads a profile picture from the base_path/user-profiles folder.
 
+        :param path:
+        :type path:
         :param username: the username of the profile picture's owner.
         :return: the binary contents of the image file.
         """
+        if username:
+            with open(f'{FileHandler.base_path}{FileHandler.PFPS_PATH}\\user-{username}.png', 'rb') as f:
+                picture = f.read()
+        if path:
+            with open(f'{FileHandler.base_path}{FileHandler.PFPS_PATH}\\{path}', 'rb') as f:
+                picture = f.read()
 
-        with open(f'{FileHandler.base_path}{FileHandler.PFPS_PATH}\\user-{username}.png', 'rb') as f:
-            picture = f.read()
         return picture
 
     @staticmethod

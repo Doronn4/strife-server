@@ -265,7 +265,34 @@ class Protocol:
 
     @staticmethod
     def chats_list(chats):
-        pass
+        """
+
+        :param chats:
+        :type chats:
+        :return:
+        :rtype:
+        """
+        opcode = Protocol.general_opcodes['chats_list']
+        msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}"
+
+        # Add the first chat name
+        msg += chats[0][1]
+        if len(chats[0]) > 1:
+            # Add all the chats names
+            for chat in chats[1:]:
+                chat_name = chat[1]
+                msg += Protocol.LIST_SEPARATOR + chat_name
+
+        msg += Protocol.FIELD_SEPARATOR
+        # Add the first chat id
+        msg += str(chats[0][0])
+        if len(chats[1]) > 1:
+            # Add all the chats ids
+            for chat in chats[1:]:
+                chat_id = str(chat[0])
+                msg += Protocol.LIST_SEPARATOR + chat_id
+
+        return msg
 
     @staticmethod
     def group_names(chat_id, usernames):
@@ -338,7 +365,6 @@ class Protocol:
         """
 
         :param profile_username:
-        :param image:
         :return: the constructed message
         """
         # Get the opcode of register

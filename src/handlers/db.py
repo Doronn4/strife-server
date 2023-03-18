@@ -1,3 +1,4 @@
+import random
 import sqlite3
 import datetime
 import hashlib
@@ -27,7 +28,8 @@ class DBHandler:
         self._create_friends_table()
 
         # Default profile pic and status for new users
-        self.DEFAULT_PROFILE_PICTURE = '\\default_pic.png'
+        self.DEFAULT_PROFILE_PICTURES = ['placeholder1.png', 'placeholder2.png', 'placeholder3.png', 'placeholder4.png',
+                                         'placeholder5.png']
         self.DEFAULT_STATUS = 'I love strife!'
 
         # Exceptions
@@ -116,7 +118,7 @@ class DBHandler:
 
             data = [username, password]
             sql = f"INSERT INTO users_table (username, password, picture, status) " \
-                  f"VALUES (?, ?, '{self.DEFAULT_PROFILE_PICTURE}', '{self.DEFAULT_STATUS}') "
+                  f"VALUES (?, ?, '{random.choice(self.DEFAULT_PROFILE_PICTURES)}', '{self.DEFAULT_STATUS}') "
             self.cursor.execute(sql, data)
             self.con.commit()
 
@@ -163,6 +165,9 @@ class DBHandler:
                   f"VALUES (?, ?)"
             self.cursor.execute(sql, data)
             self.con.commit()
+            # Create a group to represent the private chat between two friends
+            chat_id = self.create_group(f'PRIVATE%%{username}%%{friend}', username)
+            self.add_to_group(chat_id, username, friend)
 
     def remove_friend(self, username, friend):
         """
@@ -252,6 +257,15 @@ class DBHandler:
             self.cursor.execute(sql, data)
             self.con.commit()
 
+    def get_user_picture_path(self, username) -> str:
+        path = None
+        if self._user_exists(username):
+            sql = "SELECT picture FROM users_table WHERE username=?"
+            self.cursor.execute(sql, [username])
+            path = self.cursor.fetchall()[0][0]
+
+        return path
+
     def update_user_picture(self, username, picture_path):
         """
         Updates a user’s password
@@ -286,7 +300,44 @@ class DBHandler:
             self.cursor.execute(sql, data)
             self.con.commit()
 
+    @staticmethod
+    def _group_name_valid(group_name):
+        flag = True
+
+        if group_name.startswith('PRIVATE') and len(group_name.split('%%')) == 3:
+            flag = False
+
+        return flag
+
     def create_group(self, group_name, creator) -> int:
+        """
+        Create a new group in the database
+        :param group_name: The group's name
+        :param creator
+        :return: The created group's chat id
+        """
+        # Check if the name
+        if not self._group_name_valid(group_name):
+            return -1
+        else:
+            # Get the date of today
+            date_now = datetime.date.today()
+            data = [group_name, date_now]
+            # Add the group to the groups table
+            sql = f"INSERT INTO groups_table (group_name, date_of_creation) VALUES (?, ?)"
+            self.cursor.execute(sql, data)
+            self.con.commit()
+            # Get the group id
+            sql = f"SELECT chat_id from groups_table WHERE group_name =? AND date_of_creation =?"
+            self.cursor.execute(sql, data)
+            result = self.cursor.fetchall()[-1][0]
+
+            # Add the creator of the group to it
+            self._add_to_group(result, creator)
+
+        return result
+
+    def _create_group(self, group_name, creator) -> int:
         """
         Create a new group in the database
         :param group_name: The group's name
@@ -319,6 +370,10 @@ class DBHandler:
 
         return result
 
+    def _is_private_chat(self, chat_id):
+        chat_name = self.get_group_name(chat_id)
+        return chat_name.startswith('PRIVATE') and len(chat_name.split('%%')) == 3
+
     def add_to_group(self, chat_id, adder, username):
         """
         Adds a user to a group
@@ -332,6 +387,9 @@ class DBHandler:
 
         # If the username doesn't exist in the database
         if unique_id is None:
+            flag = False
+
+        elif self._is_private_chat(chat_id):
             flag = False
 
         # The adder is not in the group
@@ -539,11 +597,14 @@ class DBHandler:
         """
         # Get the unique id of the user
         unique_id = self._get_unique_id(username)
-        sql = f"SELECT chat_id FROM participants_table WHERE participant_unique_id=?"
+        sql = f"""SELECT groups_table.chat_id, groups_table.group_name
+                FROM participants_table
+                JOIN groups_table ON participants_table.chat_id = groups_table.chat_id
+                WHERE participants_table.participant_unique_id = ?;
+                """
         self.cursor.execute(sql, [unique_id])
         result = self.cursor.fetchall()
         # Make the tuples a single integer
-        result = [_[0] for _ in result]
         return result
 
 
