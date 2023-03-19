@@ -2,6 +2,7 @@ import random
 import sqlite3
 import datetime
 import hashlib
+import time
 
 
 class DBHandler:
@@ -89,7 +90,7 @@ class DBHandler:
         """
         sql = f"CREATE TABLE IF NOT EXISTS messages_table (" \
               f"chat_id INT," \
-              f" timestamp TIMESTAMP," \
+              f" timestamp INT," \
               f" sender_unique_id INT, " \
               f" message varbinary({self.MAX_MSG_LEN}))"
         self.cursor.execute(sql)
@@ -156,10 +157,7 @@ class DBHandler:
         user_id = self._get_unique_id(username)
         friend_id = self._get_unique_id(friend)
 
-        if not user_id or not friend_id:
-            raise self.USER_DOESNT_EXIST_EXCEPTION
-
-        if not self._are_friends(user_id, friend_id):
+        if self.can_add_friend(username, friend):
             data = [user_id, friend_id]
             sql = f"INSERT INTO friends_table (user_id, friend_id) " \
                   f"VALUES (?, ?)"
@@ -168,6 +166,18 @@ class DBHandler:
             # Create a group to represent the private chat between two friends
             chat_id = self.create_group(f'PRIVATE%%{username}%%{friend}', username)
             self.add_to_group(chat_id, username, friend)
+
+    def can_add_friend(self, username, friend):
+        user_id = self._get_unique_id(username)
+        friend_id = self._get_unique_id(friend)
+        flag = True
+
+        if not user_id or not friend_id:
+            flag = False
+        elif self._are_friends(user_id, friend_id):
+            flag = False
+
+        return flag
 
     def remove_friend(self, username, friend):
         """
@@ -549,7 +559,7 @@ class DBHandler:
         if not unique_id:
             raise self.USER_DOESNT_EXIST_EXCEPTION
 
-        timestamp = datetime.datetime.now()
+        timestamp = int(time.time())
 
         data = [chat_id, timestamp, unique_id, message]
 
@@ -581,7 +591,7 @@ class DBHandler:
         if not self._group_exists(chat_id):
             raise self.GROUP_DOESNT_EXIST_EXCEPTION
 
-        sql = f"SELECT sender_unique_id, message FROM messages_table WHERE chat_id=?"
+        sql = f"SELECT sender_unique_id, message FROM messages_table WHERE chat_id=? ORDER BY timestamp ASC LIMIT 30"
         self.cursor.execute(sql, [chat_id])
         result = self.cursor.fetchall()
 

@@ -25,7 +25,8 @@ class Protocol:
     }
     chat_opcodes = {
         'text_message': 1,  # Chats
-        'file_description': 2  # Chats
+        'file_description': 2,  # Chats
+        'chat_history': 3
     }
     files_opcodes = {
         'file_in_chat': 1,  # Chats
@@ -52,7 +53,8 @@ class Protocol:
         16: 'request_group_members',
         17: 'request_user_picture',
         18: 'request_user_status',
-        19: 'request_chats'
+        19: 'request_chats',
+        20: 'accept_friend'
     }
     c_chat_opcodes = {
         1: 'text_message',
@@ -84,7 +86,8 @@ class Protocol:
         'request_user_picture': ('pfp_username',),
         'request_user_status': ('username',),
         'request_chats': (),
-        'text_message': ('chat_id', 'sender_username', 'message')
+        'text_message': ('chat_id', 'sender_username', 'message'),
+        'accept_friend': ('friend_username',)
     }
 
     @staticmethod
@@ -148,8 +151,10 @@ class Protocol:
     @staticmethod
     def voice_started(chat_id):
         """
+        This method constructs a message with opcode 'voice_call_started'
+        and chat_id parameter.
 
-        :param chat_id:
+        :param chat_id: ID of the chat
         :return: the constructed message
         """
         # Get the opcode of register
@@ -162,8 +167,10 @@ class Protocol:
     @staticmethod
     def video_started(chat_id):
         """
+        This method constructs a message with opcode 'video_call_started'
+        and chat_id parameter.
 
-        :param chat_id:
+        :param chat_id: ID of the chat
         :return: the constructed message
         """
         # Get the opcode of register
@@ -176,10 +183,12 @@ class Protocol:
     @staticmethod
     def voice_call_info(chat_id, ips, usernames):
         """
+        This method constructs a message with opcode 'voice_call_info'
+        and chat_id, ips, usernames parameters.
 
-        :param chat_id:
-        :param ips:
-        :param usernames:
+        :param chat_id: ID of the chat
+        :param ips: IP addresses of the users
+        :param usernames: usernames of the users
         :return: the constructed message
         """
         # Get the opcode of register
@@ -204,11 +213,12 @@ class Protocol:
     @staticmethod
     def video_call_info(chat_id, ips, usernames):
         """
+        Constructs a message containing video call information.
 
-        :param chat_id:
-        :param ips:
-        :param usernames:
-        :return: the constructed message
+        :param chat_id: (int) The ID of the chat where the video call is taking place.
+        :param ips: (list of str) The IP addresses of the users participating in the video call.
+        :param usernames: (list of str) The usernames of the users participating in the video call.
+        :return: (str) The constructed message.
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['video_call_info']
@@ -232,11 +242,12 @@ class Protocol:
     @staticmethod
     def voice_user_joined(chat_id, user_ip, username):
         """
+        Constructs a message indicating that a user joined a voice chat.
 
-        :param chat_id:
-        :param user_ip:
-        :param username:
-        :return: the constructed message
+        :param chat_id: (int) The ID of the chat where the user joined.
+        :param user_ip: (str) The IP address of the user who joined.
+        :param username: (str) The username of the user who joined.
+        :return: (str) The constructed message.
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['voice_user_joined']
@@ -249,11 +260,12 @@ class Protocol:
     @staticmethod
     def video_user_joined(chat_id, user_ip, username):
         """
+        Constructs a message indicating that a user joined a video chat.
 
-        :param chat_id:
-        :param user_ip:
-        :param username:
-        :return: the constructed message
+        :param chat_id: (int) The ID of the chat where the user joined.
+        :param user_ip: (str) The IP address of the user who joined.
+        :param username: (str) The username of the user who joined.
+        :return: (str) The constructed message.
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['video_user_joined']
@@ -266,11 +278,12 @@ class Protocol:
     @staticmethod
     def chats_list(chats):
         """
+        Construct a message for sending the list of chats to the server.
 
-        :param chats:
-        :type chats:
-        :return:
-        :rtype:
+        :param chats: a list of chats, where each chat is a tuple of (chat_id, chat_name).
+        :type chats: list
+        :return: the constructed message
+        :rtype: str
         """
         opcode = Protocol.general_opcodes['chats_list']
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}"
@@ -297,9 +310,10 @@ class Protocol:
     @staticmethod
     def group_names(chat_id, usernames):
         """
+        Construct a message for sending the list of group members to the server.
 
-        :param chat_id:
-        :param usernames:
+        :param chat_id: the id of the group chat
+        :param usernames: a list of usernames, where each username is a string.
         :return: the constructed message
         """
         # Get the opcode of register
@@ -317,9 +331,10 @@ class Protocol:
     @staticmethod
     def user_status(username, status):
         """
+        Construct a message for updating the status of a user.
 
-        :param username:
-        :param status:
+        :param username: the username of the user
+        :param status: the new status of the user
         :return: the constructed message
         """
         # Get the opcode of register
@@ -332,8 +347,9 @@ class Protocol:
     @staticmethod
     def friend_added(friend_username):
         """
+        Construct a message for notifying the server about adding a friend.
 
-        :param friend_username:
+        :param friend_username: the username of the new friend
         :return: the constructed message
         """
         # Get the opcode of register
@@ -346,32 +362,56 @@ class Protocol:
     @staticmethod
     def send_file(chat_id, file_name, file):
         """
+        Construct a message with a file to be sent.
 
-        :param chat_id:
-        :param file_name:
-        :param file:
-        :return: the constructed message
+        :param chat_id: (str) the id of the chat the file will be sent to
+        :param file_name: (str) the name of the file to be sent
+        :param file: (bytes) the contents of the file to be sent
+        :return: (str) the constructed message
         """
-        # Get the opcode of register
+        # Get the opcode of the send_file
         kind = Protocol.files_opcodes['send_file']
-        # Construct the message
+        # Construct the message with opcode, length of file and other information
         msg = f"{kind}{Protocol.FIELD_SEPARATOR}{len(file)}{Protocol.FIELD_SEPARATOR}{chat_id}" \
               f"{Protocol.FIELD_SEPARATOR}{file_name}{Protocol.FIELD_SEPARATOR}{file}"
-        # Return the message after protocol
+        # Return the constructed message
         return msg
 
     @staticmethod
     def profile_picture(profile_username):
         """
+        Construct a message to request the profile picture of a user.
 
-        :param profile_username:
-        :return: the constructed message
+        :param profile_username: (str) the username of the user to request the profile picture for
+        :return: (str) the constructed message
         """
-        # Get the opcode of register
+        # Get the opcode of the user_profile_picture
         kind = Protocol.files_opcodes['user_profile_picture']
-        # Construct the message
+        # Construct the message with opcode and username
         msg = f"{kind}{Protocol.FIELD_SEPARATOR}{profile_username}"
-        # Return the message after protocol
+        # Return the constructed message
+        return msg
+
+    @staticmethod
+    def chat_history(messages):
+        """
+        Construct a message with a list of chat history messages.
+
+        :param messages: (list) a list of messages representing the chat history
+        :return: (str) the constructed message
+        """
+        # Get the opcode of the chat_history
+        kind = Protocol.chat_opcodes['chat_history']
+        # Construct the message with opcode and the first message from the list
+        msg = f"{kind}{Protocol.FIELD_SEPARATOR}"
+        msg += messages[0]
+
+        # Add the rest of the messages to the message
+        if len(messages) > 1:
+            for message in messages[1:]:
+                msg += Protocol.LIST_SEPARATOR + message
+
+        # Return the constructed message
         return msg
 
     @staticmethod

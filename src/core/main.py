@@ -63,9 +63,13 @@ def handle_friend_add(com, files_com, ip, params):
         friend_username = params['friend_username']
         adder_username = logged_in_users[ip]
 
-        try:
-            db_handle.add_friend(adder_username, friend_username)
-        except Exception:
+        if db_handle.can_add_friend(adder_username, friend_username):
+            friend_ip = get_ip_by_username(friend_username)
+            if friend_ip:
+                msg = Protocol.friend_request_notify(adder_username)
+                com.send_data(msg, friend_ip)
+                pending_friend_requests[adder_username] = friend_username
+        else:
             com.send_data(Protocol.reject(params['opcode']), ip)
 
     else:
@@ -258,6 +262,15 @@ def get_ip_by_username(username):
     return [target_ip for target_ip, name in logged_in_users.items() if name==username][0]
 
 
+def friend_request_exist(username, friend):
+    flag = False
+    for user1, user2 in pending_friend_requests:
+        if user1 == username and user2 == friend or user2 == username and user1 == friend:
+            flag = True
+
+    return flag
+
+
 def install_packages():
     subprocess.call(['pip', 'install', 'pycryptodome', 'cryptography'])
 
@@ -286,6 +299,8 @@ files_dict = {
 }
 
 logged_in_users = {}
+
+pending_friend_requests = []
 
 
 def main():
