@@ -64,7 +64,7 @@ def handle_friend_add(com, files_com, ip, params):
         adder_username = logged_in_users[ip]
 
         if db_handle.can_add_friend(adder_username, friend_username) and not \
-                (friend_username in list(pending_friend_requests.keys()) and
+                (adder_username in list(pending_friend_requests.keys()) and
                  pending_friend_requests[adder_username] == friend_username):
 
             friend_ip = get_ip_by_username(friend_username)
@@ -350,6 +350,11 @@ def main():
     threading.Thread(target=handle_files_messages, args=(files_com, files_queue)).start()
 
     print('###### Strife server v0.1 started running ######\n')
+
+    while True:
+        a = input('')
+        msg = Protocol.friend_request_notify('sender'+a)
+        general_com.send_data(msg, '127.0.0.1')
 
 
 if __name__ == '__main__':

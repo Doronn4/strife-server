@@ -87,7 +87,7 @@ class Protocol:
         'request_user_status': ('username',),
         'request_chats': (),
         'text_message': ('chat_id', 'sender_username', 'message'),
-        'accept_friend': ('friend_username',)
+        'accept_friend': ('friend_username', 'is_accepted',)
     }
 
     @staticmethod
