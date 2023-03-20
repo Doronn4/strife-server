@@ -290,7 +290,7 @@ class Protocol:
 
         # Add the first chat name
         msg += chats[0][1]
-        if len(chats[0]) > 1:
+        if len(chats) > 1:
             # Add all the chats names
             for chat in chats[1:]:
                 chat_name = chat[1]
@@ -299,7 +299,7 @@ class Protocol:
         msg += Protocol.FIELD_SEPARATOR
         # Add the first chat id
         msg += str(chats[0][0])
-        if len(chats[1]) > 1:
+        if len(chats) > 1:
             # Add all the chats ids
             for chat in chats[1:]:
                 chat_id = str(chat[0])

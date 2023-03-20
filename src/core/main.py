@@ -63,7 +63,10 @@ def handle_friend_add(com, files_com, ip, params):
         friend_username = params['friend_username']
         adder_username = logged_in_users[ip]
 
-        if db_handle.can_add_friend(adder_username, friend_username):
+        if db_handle.can_add_friend(adder_username, friend_username) and not \
+                (friend_username in list(pending_friend_requests.keys()) and
+                 pending_friend_requests[adder_username] == friend_username):
+
             friend_ip = get_ip_by_username(friend_username)
             if friend_ip:
                 msg = Protocol.friend_request_notify(adder_username)
@@ -72,6 +75,32 @@ def handle_friend_add(com, files_com, ip, params):
         else:
             com.send_data(Protocol.reject(params['opcode']), ip)
 
+    else:
+        com.send_data(Protocol.reject(params['opcode']), ip)
+
+
+def handle_friend_accept(com, files_com, ip, params):
+
+    if ip in logged_in_users.keys():
+        # Get the username of the sender
+        username = logged_in_users[ip]
+        # Get the username of the friend
+        friend_username = params['friend_username']
+
+        if friend_username in pending_friend_requests.keys() and pending_friend_requests[friend_username] == username:
+            db_handle = DBHandler('strife_db')
+            db_handle.add_friend(username, friend_username)
+            msg = Protocol.friend_added(friend_username)
+            com.send_data(msg, ip)
+
+            msg = Protocol.friend_added(username)
+            friend_ip = get_ip_by_username(friend_username)
+            if friend_ip:
+                com.send_data(msg, get_ip_by_username(friend_username))
+
+            del pending_friend_requests[friend_username]
+        else:
+            com.send_data(Protocol.reject(params['opcode']), ip)
     else:
         com.send_data(Protocol.reject(params['opcode']), ip)
 
@@ -259,20 +288,8 @@ def handle_files_messages(com, q):
 
 
 def get_ip_by_username(username):
-    return [target_ip for target_ip, name in logged_in_users.items() if name==username][0]
-
-
-def friend_request_exist(username, friend):
-    flag = False
-    for user1, user2 in pending_friend_requests:
-        if user1 == username and user2 == friend or user2 == username and user1 == friend:
-            flag = True
-
-    return flag
-
-
-def install_packages():
-    subprocess.call(['pip', 'install', 'pycryptodome', 'cryptography'])
+    ips = [target_ip for target_ip, name in logged_in_users.items() if name==username]
+    return ips[0] if len(ips) > 0 else None
 
 
 general_dict = {
@@ -300,11 +317,10 @@ files_dict = {
 
 logged_in_users = {}
 
-pending_friend_requests = []
+pending_friend_requests = {}
 
 
 def main():
-    install_packages()
     script_path = Path(os.path.abspath(__file__))
     wd = script_path.parent.parent.parent
     os.chdir(str(wd))
