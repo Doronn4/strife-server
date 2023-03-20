@@ -320,6 +320,7 @@ logged_in_users = {}
 pending_friend_requests = {}
 
 
+
 def main():
     script_path = Path(os.path.abspath(__file__))
     wd = script_path.parent.parent.parent
