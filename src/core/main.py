@@ -3,7 +3,7 @@ import queue
 import threading
 import subprocess
 from pathlib import Path
-
+import base64
 from src.core.server_com import ServerCom
 from src.core.server_protocol import Protocol
 from src.handlers.db import DBHandler
@@ -232,9 +232,9 @@ def handle_request_picture(com, files_com, ip, params):
         username = params['pfp_username']
         pic_path = db_handle.get_user_picture_path(username)
         pic_contents = FileHandler.load_pfp(path=pic_path)
-        msg = Protocol.profile_picture(username)
-        files_com.send_data(msg, ip)
-        files_com.send_file(pic_contents, ip)
+        str_contents = base64.b64encode(pic_contents).decode()
+        msg = Protocol.profile_picture(username, str_contents)
+        files_com.send_file(msg, ip)
 
 
 def handle_general_messages(general_com, files_com, q):
@@ -353,8 +353,10 @@ def main():
 
     while True:
         a = input('')
-        msg = Protocol.friend_request_notify('sender'+a)
-        general_com.send_data(msg, '127.0.0.1')
+        file = open('data/user-profiles/placeholder4.png', 'rb').read()
+        msg = Protocol.profile_picture('m', base64.b64encode(file).decode())
+        print('sending', msg)
+        files_com.send_file(msg, a)
 
 
 if __name__ == '__main__':

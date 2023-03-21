@@ -378,7 +378,7 @@ class Protocol:
         return msg
 
     @staticmethod
-    def profile_picture(profile_username):
+    def profile_picture(profile_username, picture_contents):
         """
         Construct a message to request the profile picture of a user.
 
@@ -388,7 +388,7 @@ class Protocol:
         # Get the opcode of the user_profile_picture
         kind = Protocol.files_opcodes['user_profile_picture']
         # Construct the message with opcode and username
-        msg = f"{kind}{Protocol.FIELD_SEPARATOR}{profile_username}"
+        msg = f"{kind}{Protocol.FIELD_SEPARATOR}{profile_username}{Protocol.FIELD_SEPARATOR}{picture_contents}"
         # Return the constructed message
         return msg
 
