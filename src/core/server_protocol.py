@@ -118,16 +118,17 @@ class Protocol:
         return msg
 
     @staticmethod
-    def friend_request_notify(sender_username):
+    def friend_request_notify(sender_username, silent=False):
         """
         Constructs a message to indicate that the user has received a friend request
         :param sender_username: The username of the requester
+        :param silent: whether the client should be notified for the request
         :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['friend_request']
         # Construct the message
-        msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{sender_username}"
+        msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{sender_username}{Protocol.FIELD_SEPARATOR}{silent}"
         # Return the message after protocol
         return msg
 
@@ -345,17 +346,22 @@ class Protocol:
         return msg
 
     @staticmethod
-    def friend_added(friend_username):
+    def friend_added(friend_username, friends_key, chat_id):
         """
         Construct a message for notifying the server about adding a friend.
 
+        :param chat_id:
+        :type chat_id:
+        :param friends_key:
+        :type friends_key:
         :param friend_username: the username of the new friend
         :return: the constructed message
         """
         # Get the opcode of register
         opcode = Protocol.general_opcodes['friend_added']
         # Construct the message
-        msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{friend_username}"
+        msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{friend_username}" \
+              f"{Protocol.FIELD_SEPARATOR}{friends_key}{Protocol.FIELD_SEPARATOR}{chat_id} "
         # Return the message after protocol
         return msg
 

@@ -175,9 +175,6 @@ class ServerCom:
         if type(dst_addr) != list:
             dst_addr = [dst_addr]
 
-        if self.com_type == 'files':
-            print('sending files')
-
         # Loop over all of the ips to send to
         for ip in dst_addr:
             # The the socket of the ip
@@ -206,9 +203,6 @@ class ServerCom:
         if type(dst_addr) != list:
             dst_addr = [dst_addr]
 
-        if self.com_type == 'files':
-            print('sending files')
-
         # Loop over all of the ips to send to
         for ip in dst_addr:
             # The the socket of the ip
@@ -220,10 +214,8 @@ class ServerCom:
                     enc_data = AESCipher.encrypt(self.open_clients[soc][1], contents).encode()
                     # Send the length of the data
                     soc.send(str(len(enc_data)).zfill(10).encode())
-                    print('sending len', len(enc_data))
                     # send the encrypted data
                     soc.send(enc_data)
-                    print('sending data', enc_data)
                 except socket.error:
                     # close the client, remove it from the list of open clients
                     self._close_client(soc)

@@ -49,6 +49,7 @@ def handle_login(com, files_com, ip, params):
             com.send_data(approve_msg, ip)
             # Add the user to the dict of logged in users with his ip as the key and username as value
             logged_in_users[ip] = username
+            send_pending_friend_requests(username, com)
             print(f'INFO: User logged in - "{username}", {ip}')
         else:
             reject_msg = Protocol.reject(params['opcode'])
@@ -71,7 +72,9 @@ def handle_friend_add(com, files_com, ip, params):
             if friend_ip:
                 msg = Protocol.friend_request_notify(adder_username)
                 com.send_data(msg, friend_ip)
-                pending_friend_requests[adder_username] = friend_username
+
+            pending_friend_requests[adder_username] = friend_username
+
         else:
             com.send_data(Protocol.reject(params['opcode']), ip)
 
@@ -80,7 +83,6 @@ def handle_friend_add(com, files_com, ip, params):
 
 
 def handle_friend_accept(com, files_com, ip, params):
-
     if ip in logged_in_users.keys():
         # Get the username of the sender
         username = logged_in_users[ip]
@@ -89,14 +91,20 @@ def handle_friend_accept(com, files_com, ip, params):
 
         if friend_username in pending_friend_requests.keys() and pending_friend_requests[friend_username] == username:
             db_handle = DBHandler('strife_db')
-            db_handle.add_friend(username, friend_username)
-            msg = Protocol.friend_added(friend_username)
+            chat_id = db_handle.add_friend(username, friend_username)
+
+            friends_key = AESCipher.generate_key()
+
+            msg = Protocol.friend_added(friend_username, friends_key, chat_id)
             com.send_data(msg, ip)
 
-            msg = Protocol.friend_added(username)
+            msg = Protocol.friend_added(username, friends_key, chat_id)
             friend_ip = get_ip_by_username(friend_username)
+
             if friend_ip:
                 com.send_data(msg, get_ip_by_username(friend_username))
+            else:
+                add_pending_message(msg, friend_username)
 
             del pending_friend_requests[friend_username]
         else:
@@ -255,11 +263,13 @@ def handle_general_messages(general_com, files_com, q):
 
         else:
             try:
+                print(data)
                 msg = Protocol.unprotocol_msg("general", data)
             except Exception:
                 pass
             else:
                 if msg['opname'] in general_dict.keys():
+                    print(msg)
                     general_dict[msg['opname']](general_com, files_com, ip, msg)
 
 
@@ -287,8 +297,34 @@ def handle_files_messages(com, q):
                 files_dict[msg['opname']](com, ip, msg)
 
 
+def send_pending_friend_requests(username, com):
+    if username in logged_in_users.values():
+        ip = get_ip_by_username(username)
+        pending_requests = [req_sender for req_sender, receiver in pending_friend_requests.items() if receiver==username]
+        for request in pending_requests:
+            msg = Protocol.friend_request_notify(request, silent=True)
+            if ip:
+                com.send_data(msg, ip)
+
+
+def add_pending_message(message, username):
+    if username in pending_messages.keys():
+        pending_messages[username].append(message)
+    else:
+        pending_messages[username] = [message]
+
+
+def send_pending_messages(username, com):
+    if username in logged_in_users.values():
+        ip = get_ip_by_username(username)
+        if username in pending_messages.keys():
+            messages = pending_messages[username]
+            for message in messages:
+                com.send_data(message, ip)
+
+
 def get_ip_by_username(username):
-    ips = [target_ip for target_ip, name in logged_in_users.items() if name==username]
+    ips = [target_ip for target_ip, name in logged_in_users.items() if name == username]
     return ips[0] if len(ips) > 0 else None
 
 
@@ -303,7 +339,8 @@ general_dict = {
     'change_username': handle_username_change,
     'change_status': handle_status_change,
     'change_password': handle_password_change,
-    'request_user_picture': handle_request_picture
+    'request_user_picture': handle_request_picture,
+    'accept_friend': handle_friend_accept
 }
 
 messages_dict = {
@@ -319,6 +356,7 @@ logged_in_users = {}
 
 pending_friend_requests = {}
 
+pending_messages = {}
 
 
 def main():
@@ -351,12 +389,11 @@ def main():
 
     print('###### Strife server v0.1 started running ######\n')
 
-    while True:
-        a = input('')
-        file = open('data/user-profiles/placeholder4.png', 'rb').read()
-        msg = Protocol.profile_picture('m', base64.b64encode(file).decode())
-        print('sending', msg)
-        files_com.send_file(msg, a)
+    # while True:
+    #     a = input('')
+    #     msg = Protocol.friend_request_notify('doron'+a)
+    #     print('sending', msg)
+    #     general_com.send_data(msg, '127.0.0.1')
 
 
 if __name__ == '__main__':

@@ -156,6 +156,7 @@ class DBHandler:
         """
         user_id = self._get_unique_id(username)
         friend_id = self._get_unique_id(friend)
+        chat_id = None
 
         if self.can_add_friend(username, friend):
             data = [user_id, friend_id]
@@ -164,8 +165,10 @@ class DBHandler:
             self.cursor.execute(sql, data)
             self.con.commit()
             # Create a group to represent the private chat between two friends
-            chat_id = self.create_group(f'PRIVATE%%{username}%%{friend}', username)
+            chat_id = self._create_group(f'PRIVATE%%{username}%%{friend}', username)
             self.add_to_group(chat_id, username, friend)
+
+        return chat_id
 
     def can_add_friend(self, username, friend):
         user_id = self._get_unique_id(username)
