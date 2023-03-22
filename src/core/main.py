@@ -188,7 +188,12 @@ def handle_username_change(com, files_com, ip, params):
 
 
 def handle_status_change(com, files_com, ip, params):
-    pass
+    if ip in logged_in_users.keys():
+        db_handle = DBHandler('strife_db')
+        new_status = params['new_status']
+        db_handle.update_user_status(logged_in_users[ip], new_status)
+    else:
+        com.send_data(Protocol.reject(params['opcode']))
 
 
 def handle_password_change(com, files_com, ip, params):
@@ -245,6 +250,19 @@ def handle_request_picture(com, files_com, ip, params):
         files_com.send_file(msg, ip)
 
 
+def handle_update_pfp(com, ip, params):
+    if ip not in logged_in_users.keys():
+        com.send_data(Protocol.reject(params['opcode']))
+    else:
+        db_handle = DBHandler('strife_db')
+        b64_picture = params['picture']
+        pic_contents = base64.b64decode(b64_picture)
+        path = FileHandler.save_pfp(pic_contents, logged_in_users[ip])
+        db_handle.update_user_picture(logged_in_users[ip], path)
+        msg = Protocol.profile_picture(logged_in_users[ip], b64_picture)
+        com.send_file(msg, ip)
+
+
 def handle_general_messages(general_com, files_com, q):
     """
     Handle the general messages
@@ -263,13 +281,11 @@ def handle_general_messages(general_com, files_com, q):
 
         else:
             try:
-                print(data)
                 msg = Protocol.unprotocol_msg("general", data)
             except Exception:
                 pass
             else:
                 if msg['opname'] in general_dict.keys():
-                    print(msg)
                     general_dict[msg['opname']](general_com, files_com, ip, msg)
 
 
@@ -349,6 +365,7 @@ messages_dict = {
 }
 
 files_dict = {
+    'profile_pic_change': handle_update_pfp
 
 }
 
@@ -388,12 +405,6 @@ def main():
     threading.Thread(target=handle_files_messages, args=(files_com, files_queue)).start()
 
     print('###### Strife server v0.1 started running ######\n')
-
-    # while True:
-    #     a = input('')
-    #     msg = Protocol.friend_request_notify('doron'+a)
-    #     print('sending', msg)
-    #     general_com.send_data(msg, '127.0.0.1')
 
 
 if __name__ == '__main__':

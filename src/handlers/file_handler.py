@@ -48,6 +48,8 @@ class FileHandler:
         with open(f'{FileHandler.base_path}{FileHandler.PFPS_PATH}\\user-{username}.png', 'wb') as f:
             f.write(resized_pfp)
 
+        return f'user-{username}.png'
+
     @staticmethod
     def load_pfp(username=None, path=None):
         """

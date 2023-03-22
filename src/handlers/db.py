@@ -166,7 +166,7 @@ class DBHandler:
             self.con.commit()
             # Create a group to represent the private chat between two friends
             chat_id = self._create_group(f'PRIVATE%%{username}%%{friend}', username)
-            self.add_to_group(chat_id, username, friend)
+            self._add_to_group(chat_id, friend)
 
         return chat_id
 
@@ -417,6 +417,8 @@ class DBHandler:
             sql = f"INSERT INTO participants_table (chat_id, participant_unique_id) VALUES (?, ?)"
             self.cursor.execute(sql, [chat_id, unique_id])
             self.con.commit()
+
+        return flag
 
     def _add_to_group(self, chat_id, username) -> bool:
         """

@@ -55,12 +55,19 @@ class ServerCom:
                 # A message has been sent from a client
                 else:
                     try:
-                        # Receive the size of the data
-                        size = current_socket.recv(4).decode()
+                        if self.com_type == 'files':
+                            size = current_socket.recv(10).decode()
+                        else:
+                            # Receive the size of the data
+                            size = current_socket.recv(4).decode()
                         # Convert the size to int
                         size = int(size)
+
                         # Receive the data
-                        data = current_socket.recv(size)
+                        if size > 1024:
+                            data = self.receive_file(size, current_socket)
+                        else:
+                            data = current_socket.recv(size)
 
                     # Handle exceptions
                     except ValueError:
@@ -116,16 +123,13 @@ class ServerCom:
             if self.log:
                 print(f'{self.com_type.upper()}: Changed keys successfully with', ip)
 
-    def receive_file(self, from_addr: str, size: int):
+    def receive_file(self, size: int, client_socket: socket.socket):
         """
         Receive a file from a client
-        :param from_addr: The addr of the client
+        :param client_socket:
         :param size: The size of the file
         :return: The file (as bytes)
         """
-        # Get the client socket by his addr
-        client_socket = self._get_sock_by_ip(from_addr)
-
         # Initialize an empty bytearray to store the file data
         file_data = bytearray()
 

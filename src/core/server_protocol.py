@@ -87,7 +87,8 @@ class Protocol:
         'request_user_status': ('username',),
         'request_chats': (),
         'text_message': ('chat_id', 'sender_username', 'message'),
-        'accept_friend': ('friend_username', 'is_accepted',)
+        'accept_friend': ('friend_username', 'is_accepted',),
+        'profile_pic_change': ('picture',)
     }
 
     @staticmethod
@@ -469,7 +470,7 @@ class Protocol:
         params_names = Protocol.c_opcodes_params[opcode_name]
 
         # Assign a value for each parameter in a dict
-        for i in range(len(values)):
+        for i in range(len(params_names)):
             value = values[i]
             param_name = params_names[i]
 
