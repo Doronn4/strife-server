@@ -406,11 +406,11 @@ class DBHandler:
             flag = False
 
         # The adder is not in the group
-        elif not self._is_in_group(chat_id, username=adder):
+        elif not self.is_in_group(chat_id, username=adder):
             flag = False
 
         # Check if the user is already in the group
-        elif self._is_in_group(chat_id, unique_id=unique_id):
+        elif self.is_in_group(chat_id, unique_id=unique_id):
             flag = False
 
         else:
@@ -435,7 +435,7 @@ class DBHandler:
             flag = False
 
         # Check if the user is already in the group
-        elif self._is_in_group(chat_id, unique_id=unique_id):
+        elif self.is_in_group(chat_id, unique_id=unique_id):
             flag = False
 
         else:
@@ -445,7 +445,7 @@ class DBHandler:
 
         return flag
 
-    def _is_in_group(self, chat_id, username=None, unique_id=None) -> bool:
+    def is_in_group(self, chat_id, username=None, unique_id=None) -> bool:
         """
         Check if a user is in a group
         :param chat_id: The chat id of the group
@@ -523,6 +523,22 @@ class DBHandler:
         self.cursor.execute(sql)
         answer = self.cursor.fetchall()
         return len(answer) == 1
+
+    def get_file(self, file_hash: str):
+        """
+        Get a file saved in a chat
+        :param file_hash: The hash of the file
+        :type file_hash: str
+        :return: The chat_id of the chat where the file was saved, and the name of the file (as it's saved in the server)
+        :rtype: tuple
+        """
+        sql = f"SELECT file_name, chat_id FROM files_table WHERE file_hash=?"
+        self.cursor.execute(sql, [file_hash])
+        result = self.cursor.fetchall()
+        if result is not None:
+            result = result[0]
+
+        return result
 
     def add_file(self, chat_id, file_name, file_hash):
         """
@@ -619,7 +635,6 @@ class DBHandler:
                 """
         self.cursor.execute(sql, [unique_id])
         result = self.cursor.fetchall()
-        # Make the tuples a single integer
         return result
 
 

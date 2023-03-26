@@ -1,3 +1,4 @@
+import hashlib
 import os
 import queue
 import threading
@@ -11,7 +12,7 @@ from src.core.cryptions import AESCipher
 from src.handlers.file_handler import FileHandler
 
 
-def handle_register(com, files_com, ip, params):
+def handle_register(com, chat_com, files_com, ip, params):
     # Check if the user is already logged in
     if ip in logged_in_users.keys():
         com.send_data(Protocol.reject(params['opcode']), ip)
@@ -20,7 +21,8 @@ def handle_register(com, files_com, ip, params):
         db_handle = DBHandler('strife_db')
         username = params['username']
         password = params['password']
-        flag = db_handle.add_user(username, password)
+        hashed_password = hashlib.sha256(password).hexdigest()
+        flag = db_handle.add_user(username, hashed_password)
         if flag:
             approve_msg = Protocol.approve(params['opcode'])
             com.send_data(approve_msg, ip)
@@ -31,7 +33,7 @@ def handle_register(com, files_com, ip, params):
             print(f'INFO: Register failed for {ip}')
 
 
-def handle_login(com, files_com, ip, params):
+def handle_login(com, chat_com, files_com, ip, params):
     # Check if the user is already logged in
     if ip in logged_in_users.keys():
         com.send_data(Protocol.reject(params['opcode']), ip)
@@ -40,14 +42,15 @@ def handle_login(com, files_com, ip, params):
         db_handle = DBHandler('strife_db')
         username = params['username']
         password = params['password']
+        hashed_password = hashlib.sha256(password).hexdigest()
         if username in logged_in_users.values():
             flag = False
         else:
-            flag = db_handle.check_credentials(username, password)
+            flag = db_handle.check_credentials(username, hashed_password)
         if flag:
             approve_msg = Protocol.approve(params['opcode'])
             com.send_data(approve_msg, ip)
-            # Add the user to the dict of logged in users with his ip as the key and username as value
+            # Add the user to the dict of logged-in users with his ip as the key and username as value
             logged_in_users[ip] = username
             send_pending_friend_requests(username, com)
             print(f'INFO: User logged in - "{username}", {ip}')
@@ -57,7 +60,7 @@ def handle_login(com, files_com, ip, params):
             print(f'INFO: Login failed for {ip}')
 
 
-def handle_friend_add(com, files_com, ip, params):
+def handle_friend_add(com, chat_com, files_com, ip, params):
     # Check if the user is logged in
     if ip in logged_in_users.keys():
         db_handle = DBHandler('strife_db')
@@ -82,7 +85,7 @@ def handle_friend_add(com, files_com, ip, params):
         com.send_data(Protocol.reject(params['opcode']), ip)
 
 
-def handle_friend_accept(com, files_com, ip, params):
+def handle_friend_accept(com, chat_com, files_com, ip, params):
     if ip in logged_in_users.keys():
         # Get the username of the sender
         username = logged_in_users[ip]
@@ -113,7 +116,7 @@ def handle_friend_accept(com, files_com, ip, params):
         com.send_data(Protocol.reject(params['opcode']), ip)
 
 
-def handle_friend_remove(com, files_com, ip, params):
+def handle_friend_remove(com, chat_com, files_com, ip, params):
     # Check if the user is logged in
     if ip in logged_in_users.keys():
         db_handle = DBHandler('strife_db')
@@ -125,7 +128,7 @@ def handle_friend_remove(com, files_com, ip, params):
         com.send_data(Protocol.reject(params['opcode']), ip)
 
 
-def handle_group_creation(com, files_com, ip, params):
+def handle_group_creation(com, chat_com, files_com, ip, params):
     # Check if the user is logged in
     if ip in logged_in_users.keys():
         db_handle = DBHandler('strife_db')
@@ -134,11 +137,13 @@ def handle_group_creation(com, files_com, ip, params):
         group_key = AESCipher.generate_key()
 
         creator_username = logged_in_users[ip]
-        # Create the group and save it's id
+        # Create the group and save its id
         group_id = db_handle.create_group(group_name, creator_username)
         if group_id == -1:
             com.send_data(Protocol.reject(params['opcode']), ip)
         else:
+            # Create a folder for the chat
+            FileHandler.create_chat(group_id)
             # Create a message that indicates that the creator of the group was added to the group
             msg = Protocol.added_to_group(group_name, group_id, group_key)
             # Send the message to the client (creator)
@@ -147,7 +152,7 @@ def handle_group_creation(com, files_com, ip, params):
         com.send_data(Protocol.reject(params['opcode']), ip)
 
 
-def handle_add_group_member(com, files_com, ip, params):
+def handle_add_group_member(com, chat_com, files_com, ip, params):
     # Check if the user is logged in
     if ip in logged_in_users.keys():
         db_handle = DBHandler('strife_db')
@@ -169,7 +174,7 @@ def handle_add_group_member(com, files_com, ip, params):
         com.send_data(Protocol.reject(params['opcode']), ip)
 
 
-def handle_request_chats(com, files_com, ip, params):
+def handle_request_chats(com, chat_com, files_com, ip, params):
     # Check if the user is logged in
     if ip in logged_in_users.keys():
         db_handle = DBHandler('strife_db')
@@ -180,23 +185,27 @@ def handle_request_chats(com, files_com, ip, params):
             msg = Protocol.chats_list(chats)
             com.send_data(msg, ip)
     else:
-        com.send_data(Protocol.reject(params['opcode']))
+        com.send_data(Protocol.reject(params['opcode']), ip)
 
 
-def handle_username_change(com, files_com, ip, params):
-    pass
+def handle_username_change(com, chat_com, files_com, ip, params):
+    if ip not in logged_in_users.keys():
+        com.send_data(Protocol.reject(params['opcode']), ip)
+    else:
+        db_handle = DBHandler('strife_db')
+        # TODO: do the rest
 
 
-def handle_status_change(com, files_com, ip, params):
+def handle_status_change(com, chat_com, files_com, ip, params):
     if ip in logged_in_users.keys():
         db_handle = DBHandler('strife_db')
         new_status = params['new_status']
         db_handle.update_user_status(logged_in_users[ip], new_status)
     else:
-        com.send_data(Protocol.reject(params['opcode']))
+        com.send_data(Protocol.reject(params['opcode']), ip)
 
 
-def handle_password_change(com, files_com, ip, params):
+def handle_password_change(com, chat_com, files_com, ip, params):
     pass
 
 
@@ -206,7 +215,7 @@ def handle_text_message(com, ip, params, raw):
     """
     # Check if the user is logged in
     if ip not in logged_in_users.keys():
-        com.send_data(Protocol.reject(params['opcode']))
+        com.send_data(Protocol.reject(params['opcode']), ip)
         pass
 
     else:
@@ -235,11 +244,21 @@ def handle_file_description(com, ip, params, raw):
         db_handle = DBHandler('strife_db')
         chat_id = params['chat_id']
         sender = params['sender_username']
+        message = params['message']
+
+        db_handle.add_message(chat_id, sender, message)
+        group_members_names = db_handle.get_group_members(chat_id)
+
+        connected_members_ips = [get_ip_by_username(member_name)
+                                 for member_name in group_members_names
+                                 if member_name in logged_in_users.values()]
+
+        com.send_data(raw, connected_members_ips)
 
 
-def handle_request_picture(com, files_com, ip, params):
+def handle_request_picture(com, chat_com, files_com, ip, params):
     if ip not in logged_in_users.keys():
-        com.send_data(Protocol.reject(params['opcode']))
+        com.send_data(Protocol.reject(params['opcode']), ip)
     else:
         db_handle = DBHandler('strife_db')
         username = params['pfp_username']
@@ -252,7 +271,7 @@ def handle_request_picture(com, files_com, ip, params):
 
 def handle_update_pfp(com, ip, params):
     if ip not in logged_in_users.keys():
-        com.send_data(Protocol.reject(params['opcode']))
+        com.send_data(Protocol.reject(params['opcode']), ip)
     else:
         db_handle = DBHandler('strife_db')
         b64_picture = params['picture']
@@ -263,9 +282,62 @@ def handle_update_pfp(com, ip, params):
         com.send_file(msg, ip)
 
 
-def handle_general_messages(general_com, files_com, q):
+def handle_chat_history_request(com, chat_com, files_com, ip, params):
+    if ip not in logged_in_users.keys():
+        com.send_data(Protocol.reject(params['opcode']), ip)
+    else:
+        db_handle = DBHandler('strife_db')
+        chats = db_handle.get_chats_of(logged_in_users[ip])
+        print(chats)
+        msg = Protocol.chats_list(chats)
+        chat_com.send_data(msg, ip)
+
+
+def handle_request_group_members(com, chat_com, files_com, ip, params):
+    if ip not in logged_in_users.keys():
+        com.send_data(Protocol.reject(params['opcode']), ip)
+    else:
+        db_handle = DBHandler('strife_db')
+        chat_id = params['chat_id']
+        members = db_handle.get_group_members(chat_id)
+        msg = Protocol.group_names(chat_id, members)
+        com.send_data(msg, ip)
+
+
+def handle_file_in_chat(com, ip, params):
+    if ip not in logged_in_users.keys():
+        com.send_data(Protocol.reject(params['opcode']), ip)
+    else:
+        db_handle = DBHandler('strife_db')
+        chat_id = params['chat_id']
+        filename = params['file_name']
+        file_contents = params['file']
+        FileHandler.save_file(file_contents.encode(), chat_id, filename)
+        file_hash = hashlib.sha256(file_contents).hexdigest()
+        db_handle.add_file(chat_id, filename, file_hash)
+
+        # TODO: send the file info msg
+
+
+def handle_request_file(com, chat_com, files_com, ip, params):
+    if ip not in logged_in_users.keys():
+        com.send_data(Protocol.reject(params['opcode']), ip)
+    else:
+        db_handle = DBHandler('strife_db')
+        file_hash = params['file_hash']
+        file_name, chat_id = db_handle.get_file(file_hash)
+        if db_handle.is_in_group(chat_id, username=logged_in_users[ip]):
+            file_contents = FileHandler.load_file(chat_id, file_name)
+            b64_contents = base64.b64encode(file_contents).decode()
+            msg = Protocol.send_file(chat_id, file_name, b64_contents)
+            files_com.send_file(msg, ip)
+
+
+def handle_general_messages(general_com, chat_com, files_com, q):
     """
     Handle the general messages
+    :param chat_com:
+    :type chat_com:
     :param general_com:
     :param files_com:
     :param q:
@@ -286,7 +358,7 @@ def handle_general_messages(general_com, files_com, q):
                 pass
             else:
                 if msg['opname'] in general_dict.keys():
-                    general_dict[msg['opname']](general_com, files_com, ip, msg)
+                    general_dict[msg['opname']](general_com, chat_com, files_com, ip, msg)
 
 
 def handle_chats_messages(com, q):
@@ -356,7 +428,10 @@ general_dict = {
     'change_status': handle_status_change,
     'change_password': handle_password_change,
     'request_user_picture': handle_request_picture,
-    'accept_friend': handle_friend_accept
+    'accept_friend': handle_friend_accept,
+    'get_chat_history': handle_chat_history_request,
+    'group_members': handle_request_group_members,
+    'request_file': handle_request_file,
 }
 
 messages_dict = {
@@ -365,8 +440,8 @@ messages_dict = {
 }
 
 files_dict = {
-    'profile_pic_change': handle_update_pfp
-
+    'profile_pic_change': handle_update_pfp,
+    'file_in_chat': handle_file_in_chat
 }
 
 logged_in_users = {}
@@ -398,7 +473,7 @@ def main():
     files_com = ServerCom(3000, files_queue, com_type='files')
 
     # Start a thread to handle the general messages being received
-    threading.Thread(target=handle_general_messages, args=(general_com, files_com, general_queue)).start()
+    threading.Thread(target=handle_general_messages, args=(general_com, chats_com, files_com, general_queue)).start()
     # Start a thread to handle the chat messages being received
     threading.Thread(target=handle_chats_messages, args=(chats_com, chats_queue)).start()
     # Start a thread to handle the files messages being received

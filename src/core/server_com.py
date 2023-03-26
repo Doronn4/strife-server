@@ -158,7 +158,7 @@ class ServerCom:
         # Return value
         ret_sock = None
 
-        # Loop over all of the clients connected to the server
+        # Loop over all the clients connected to the server
         for soc, (ip, key) in self.open_clients.items():
             # Check if the ip is the target ip
             if ip == target_ip:
@@ -179,9 +179,9 @@ class ServerCom:
         if type(dst_addr) != list:
             dst_addr = [dst_addr]
 
-        # Loop over all of the ips to send to
+        # Loop over all the ips to send to
         for ip in dst_addr:
-            # The the socket of the ip
+            # The socket of the ip
             soc = self._get_sock_by_ip(ip)
             # Check if the socket is still connected to the server
             if soc and soc in self.open_clients.keys():

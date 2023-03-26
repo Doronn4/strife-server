@@ -83,6 +83,20 @@ class FileHandler:
             f.write(contents)
 
     @staticmethod
+    def load_file(chat_id: int, file_name: str):
+        """
+        Loads a file from the base_path/chats/<chat_id> folder.
+
+        :param chat_id: the id of the chat associated with the file.
+        :param file_name: the name of the file.
+        """
+
+        contents = None
+        with open(f'{FileHandler.base_path}{FileHandler.CHATS_PATH}\\{chat_id}\\{file_name}', 'rb') as f:
+            contents = f.read()
+        return contents
+
+    @staticmethod
     def create_chat(chat_id):
         """
         Creates a folder for a chat in the base_path/chats folder.

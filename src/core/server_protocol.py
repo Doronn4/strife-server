@@ -88,7 +88,8 @@ class Protocol:
         'request_chats': (),
         'text_message': ('chat_id', 'sender_username', 'message'),
         'accept_friend': ('friend_username', 'is_accepted',),
-        'profile_pic_change': ('picture',)
+        'profile_pic_change': ('picture',),
+        'file_in_chat': ('chat_id', 'file_name', 'file')
     }
 
     @staticmethod
@@ -287,7 +288,7 @@ class Protocol:
         :return: the constructed message
         :rtype: str
         """
-        opcode = Protocol.general_opcodes['chats_list']
+        opcode = Protocol.chat_opcodes['chat_history']
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}"
 
         # Add the first chat name
