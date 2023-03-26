@@ -81,7 +81,7 @@ class Protocol:
         'remove_friend': ('friend_username',),
         'join_voice': ('chat_id',),
         'join_video': ('chat_id',),
-        'add_group_member': ('chat_id', 'new_member_username'),
+        'add_group_member': ('chat_id', 'new_member_username', 'group_key',),
         'request_group_members': ('chat_id',),
         'request_user_picture': ('pfp_username',),
         'request_user_status': ('username',),
@@ -288,7 +288,7 @@ class Protocol:
         :return: the constructed message
         :rtype: str
         """
-        opcode = Protocol.chat_opcodes['chat_history']
+        opcode = Protocol.general_opcodes['chats_list']
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}"
 
         # Add the first chat name

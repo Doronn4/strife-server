@@ -21,7 +21,7 @@ def handle_register(com, chat_com, files_com, ip, params):
         db_handle = DBHandler('strife_db')
         username = params['username']
         password = params['password']
-        hashed_password = hashlib.sha256(password).hexdigest()
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
         flag = db_handle.add_user(username, hashed_password)
         if flag:
             approve_msg = Protocol.approve(params['opcode'])
@@ -42,7 +42,7 @@ def handle_login(com, chat_com, files_com, ip, params):
         db_handle = DBHandler('strife_db')
         username = params['username']
         password = params['password']
-        hashed_password = hashlib.sha256(password).hexdigest()
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
         if username in logged_in_users.values():
             flag = False
         else:
@@ -166,7 +166,7 @@ def handle_add_group_member(com, chat_com, files_com, ip, params):
 
         if flag:
             added_msg = Protocol.added_to_group(db_handle.get_group_name(chat_id), chat_id, group_key)
-            com.send_data(added_msg, ip)
+            com.send_data(added_msg, get_ip_by_username(username))
 
         msg = Protocol.approve(params['opcode']) if flag else Protocol.reject(params['opcode'])
         com.send_data(msg, ip)
@@ -288,7 +288,6 @@ def handle_chat_history_request(com, chat_com, files_com, ip, params):
     else:
         db_handle = DBHandler('strife_db')
         chats = db_handle.get_chats_of(logged_in_users[ip])
-        print(chats)
         msg = Protocol.chats_list(chats)
         chat_com.send_data(msg, ip)
 
@@ -313,7 +312,7 @@ def handle_file_in_chat(com, ip, params):
         filename = params['file_name']
         file_contents = params['file']
         FileHandler.save_file(file_contents.encode(), chat_id, filename)
-        file_hash = hashlib.sha256(file_contents).hexdigest()
+        file_hash = hashlib.sha256(file_contents.encode()).hexdigest()
         db_handle.add_file(chat_id, filename, file_hash)
 
         # TODO: send the file info msg
@@ -388,7 +387,7 @@ def handle_files_messages(com, q):
 def send_pending_friend_requests(username, com):
     if username in logged_in_users.values():
         ip = get_ip_by_username(username)
-        pending_requests = [req_sender for req_sender, receiver in pending_friend_requests.items() if receiver==username]
+        pending_requests = [req_sender for req_sender, receiver in pending_friend_requests.items() if receiver == username]
         for request in pending_requests:
             msg = Protocol.friend_request_notify(request, silent=True)
             if ip:
