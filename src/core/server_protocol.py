@@ -9,28 +9,28 @@ class Protocol:
 
     # Opcodes to construct messages (server -> client)
     general_opcodes = {
-        'approve_reject': 1,  # All
-        'friend_request': 2,  # Friendlist
-        'added_to_group': 3,  # Chats
-        'voice_call_started': 4,  # Call
-        'video_call_started': 5,  # Call
-        'voice_call_info': 6,  # Call
-        'video_call_info': 7,  # Call
-        'voice_user_joined': 8,  # Call
-        'video_user_joined': 9,  # Call
-        'chats_list': 10,  # Chats
-        'group_members': 11,  # Chats
-        'user_status': 12,  # Chats
-        'friend_added': 13  # Friendlst
+        'approve_reject': 1,
+        'friend_request': 2,
+        'added_to_group': 3,
+        'voice_call_started': 4,
+        'video_call_started': 5,
+        'voice_call_info': 6,
+        'video_call_info': 7,
+        'voice_user_joined': 8,
+        'video_user_joined': 9,
+        'chats_list': 10,
+        'group_members': 11,
+        'user_status': 12,
+        'friend_added': 13
     }
     chat_opcodes = {
-        'text_message': 1,  # Chats
-        'file_description': 2,  # Chats
+        'text_message': 1,
+        'file_description': 2,
         'chat_history': 3
     }
     files_opcodes = {
-        'file_in_chat': 1,  # Chats
-        'user_profile_picture': 2  # Chats
+        'file_in_chat': 1,
+        'user_profile_picture': 2
     }
 
     # Opcodes to read messages (client -> server)
@@ -130,7 +130,8 @@ class Protocol:
         # Get the opcode of register
         opcode = Protocol.general_opcodes['friend_request']
         # Construct the message
-        msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{sender_username}{Protocol.FIELD_SEPARATOR}{silent}"
+        msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}" \
+              f"{sender_username}{Protocol.FIELD_SEPARATOR}{int(silent)}"
         # Return the message after protocol
         return msg
 
@@ -386,10 +387,39 @@ class Protocol:
         return msg
 
     @staticmethod
+    def file_description(filename, file_size, file_hash):
+        """
+        This static method takes in a filename, file size, and file hash and returns a string that
+        describes the file.
+
+        :param filename: the name of the file
+        :type filename: str
+        :param file_size: the size of the file in bytes
+        :type file_size: int
+        :param file_hash: the hash of the file contents
+        :type file_hash: str
+        :return: a message describing the file
+        :rtype: str
+        """
+
+        # Get the opcode that corresponds to the 'file_description' command from the Protocol class
+        kind = Protocol.chat_opcodes['file_description']
+
+        # Concatenate the opcode, filename, file size, and file hash with the field separator
+        msg = f"{kind}{Protocol.FIELD_SEPARATOR}{filename}" \
+              f"{Protocol.FIELD_SEPARATOR}{file_size}" \
+              f"{Protocol.FIELD_SEPARATOR}{file_hash}"
+
+        # Return the resulting message
+        return msg
+
+    @staticmethod
     def profile_picture(profile_username, picture_contents):
         """
         Construct a message to request the profile picture of a user.
 
+        :param picture_contents: The picture's contents as a base64 encoded string
+        :type picture_contents: str
         :param profile_username: (str) the username of the user to request the profile picture for
         :return: (str) the constructed message
         """
@@ -423,10 +453,10 @@ class Protocol:
         return msg
 
     @staticmethod
-    def unprotocol_msg(type: str, raw_message: str):
+    def unprotocol_msg(msg_type: str, raw_message: str):
         """
         Deconstructs a message received from the client with the client-server's protocol
-        :param type: The type of the message (general / chats / files)
+        :param msg_type: The type of the message (general / chats / files)
         :param raw_message: The raw message string that was sent
         :return: a dict of the parameters' names as the keys and their values as the values
         """
@@ -443,7 +473,7 @@ class Protocol:
         ret = {}
 
         # If the message was received in the general messages channel
-        if type == 'general':
+        if msg_type == 'general':
             if opcode in Protocol.c_general_opcodes.keys():
                 # The first value in the dict is the opcode's name (opname)
                 opcode_name = Protocol.c_general_opcodes[opcode]
@@ -451,7 +481,7 @@ class Protocol:
                 ret['opcode'] = opcode
 
         # If the message was received in the chat messages channel
-        elif type == 'chats':
+        elif msg_type == 'chats':
             if opcode in Protocol.c_chat_opcodes.keys():
                 # The first value in the dict is the opcode's name (opname)
                 opcode_name = Protocol.c_chat_opcodes[opcode]
@@ -460,7 +490,7 @@ class Protocol:
                 ret['chat_id'] = chat_id
 
         # If the message was received in the files messages channel
-        elif type == 'files':
+        elif msg_type == 'files':
             if opcode in Protocol.c_files_opcodes.keys():
                 # The first value in the dict is the opcode's name (opname)
                 opcode_name = Protocol.c_files_opcodes[opcode]
@@ -491,12 +521,3 @@ class Protocol:
                 else:
                     ret[param_name] = value
         return ret
-
-
-if __name__ == '__main__':
-    data = "01@doron@12323k"
-    ret = Protocol.unprotocol_msg("general", data)
-    print(ret)
-
-
-

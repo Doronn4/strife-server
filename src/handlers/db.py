@@ -296,6 +296,23 @@ class DBHandler:
             self.cursor.execute(sql, data)
             self.con.commit()
 
+    def get_user_status(self, username):
+        """
+        Finds the status of a given user in the database
+        :param username: The username of the user
+        :type username: str
+        :return: The user's status
+        :rtype: str
+        """
+        # Check if user exists
+        if not self._user_exists(username):
+            raise self.USER_DOESNT_EXIST_EXCEPTION
+
+        sql = "SELECT status from users_table WHERE username=?"
+        self.cursor.execute(sql, [username])
+        result = self.cursor.fetchall()[0][0]
+        return result
+
     def update_user_status(self, username, new_status):
         """
         Updates a user’s status
@@ -309,7 +326,7 @@ class DBHandler:
 
         else:
             data = [new_status, username]
-            sql = f"UPDATE users_table SET status=? WHERE username=?"
+            sql = "UPDATE users_table SET status=? WHERE username=?"
             self.cursor.execute(sql, data)
             self.con.commit()
 
