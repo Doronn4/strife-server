@@ -16,6 +16,7 @@ class ServerCom:
         :param server_port: The server port
         :param message_queue: The message queue
         """
+        self.MAX_SIZE = 8 * 1000000
         self.FILE_CHUNK_SIZE = 4096  # The chunk size to send when sending files
         self.port = server_port  # The server's port
         self.message_queue = message_queue  # The message queue of the server
@@ -62,7 +63,9 @@ class ServerCom:
                             size = current_socket.recv(4).decode()
                         # Convert the size to int
                         size = int(size)
-
+                        
+                        if size > self.MAX_SIZE:
+                            continue
                         # Receive the data
                         if size > 1024:
                             data = self.receive_file(size, current_socket)
@@ -196,7 +199,7 @@ class ServerCom:
                     # close the client, remove it from the list of open clients
                     self._close_client(soc)
 
-    def send_file(self, contents: bytes, dst_addr):
+    def send_file(self, contents, dst_addr):
         """
         Send data to a client or a list of clients
         :param contents: The data to send
@@ -207,19 +210,23 @@ class ServerCom:
         if type(dst_addr) != list:
             dst_addr = [dst_addr]
 
-        # Loop over all of the ips to send to
+        # Loop over all the ips to send to
         for ip in dst_addr:
-            # The the socket of the ip
+            # The socket of the ip
             soc = self._get_sock_by_ip(ip)
             # Check if the socket is still connected to the server
             if soc and soc in self.open_clients.keys():
                 try:
+                    print('com1')
                     # encrypt the data
                     enc_data = AESCipher.encrypt(self.open_clients[soc][1], contents).encode()
+                    print('com2')
                     # Send the length of the data
                     soc.send(str(len(enc_data)).zfill(10).encode())
+                    print('com3')
                     # send the encrypted data
                     soc.send(enc_data)
+                    print('com4')
                 except socket.error:
                     # close the client, remove it from the list of open clients
                     self._close_client(soc)

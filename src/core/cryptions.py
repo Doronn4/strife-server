@@ -204,21 +204,3 @@ class AESCipher:
         """
         return hashlib.sha256(os.urandom(32)).hexdigest()[:32]
 
-
-if __name__ == '__main__':
-    # # Test aes
-    # aes = AESCipher()
-    # raw = 'ahdraokrlp\n'*20
-    # print(raw)
-    # key = AESCipher.generate_key()
-    # print(len(key))
-    # enc = aes.encrypt(raw.encode(), key)
-    # print('enc', len(enc))
-    # print('raw', len(raw.encode()))
-    # print('diff ', str(len(enc) - len(raw.encode())))
-    # dec = aes.decrypt(enc, key).decode()
-    # assert dec == raw
-
-    # TESt rsa
-    key = AESCipher.generate_key()
-    print(len(key))

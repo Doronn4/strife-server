@@ -127,11 +127,3 @@ class FileHandler:
         buffer = BytesIO()
         image.save(buffer, format="PNG")
         return buffer.getvalue()
-
-
-if __name__ == '__main__':
-    my = FileHandler
-    FileHandler.initialize()
-    my.create_chat(69)
-    with open("C:\\Users\\doron\\Pictures\\2.jpeg", 'rb') as f:
-        my.save_pfp(f.read(), 'gabzo')

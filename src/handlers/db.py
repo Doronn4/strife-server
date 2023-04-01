@@ -552,7 +552,7 @@ class DBHandler:
         sql = f"SELECT file_name, chat_id FROM files_table WHERE file_hash=?"
         self.cursor.execute(sql, [file_hash])
         result = self.cursor.fetchall()
-        if result is not None:
+        if len(result) > 0:
             result = result[0]
 
         return result
@@ -578,7 +578,7 @@ class DBHandler:
         self.cursor.execute(sql, data)
         self.con.commit()
 
-    def add_message(self, chat_id, sender_username, message: bytes):
+    def add_message(self, chat_id, sender_username, message: str):
         """
         Add a message sent on a chat to the database
         :param chat_id: The chat id
@@ -629,10 +629,10 @@ class DBHandler:
         if not self._group_exists(chat_id):
             raise self.GROUP_DOESNT_EXIST_EXCEPTION
 
-        sql = f"SELECT sender_unique_id, message FROM messages_table WHERE chat_id=? ORDER BY timestamp ASC LIMIT 30"
+        sql = f"SELECT message FROM messages_table WHERE chat_id=? ORDER BY timestamp DESC LIMIT 30"
         self.cursor.execute(sql, [chat_id])
         result = self.cursor.fetchall()
-
+        result = [_[0] for _ in result] if len(result) > 0 else None
         return result
 
     def get_chats_of(self, username: str) -> list:

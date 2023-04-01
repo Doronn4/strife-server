@@ -89,7 +89,8 @@ class Protocol:
         'text_message': ('chat_id', 'sender_username', 'message'),
         'accept_friend': ('friend_username', 'is_accepted',),
         'profile_pic_change': ('picture',),
-        'file_in_chat': ('chat_id', 'file_name', 'file')
+        'file_in_chat': ('chat_id', 'file_name', 'file'),
+        'file_description': ('chat_id', 'sender', 'file_name', 'file_size', 'file_hash',)
     }
 
     @staticmethod
@@ -379,38 +380,11 @@ class Protocol:
         :return: (str) the constructed message
         """
         # Get the opcode of the send_file
-        kind = Protocol.files_opcodes['send_file']
+        kind = Protocol.files_opcodes['file_in_chat']
         # Construct the message with opcode, length of file and other information
-        msg = f"{kind}{Protocol.FIELD_SEPARATOR}{len(file)}{Protocol.FIELD_SEPARATOR}{chat_id}" \
+        msg = f"{kind}{Protocol.FIELD_SEPARATOR}{chat_id}" \
               f"{Protocol.FIELD_SEPARATOR}{file_name}{Protocol.FIELD_SEPARATOR}{file}"
         # Return the constructed message
-        return msg
-
-    @staticmethod
-    def file_description(filename, file_size, file_hash):
-        """
-        This static method takes in a filename, file size, and file hash and returns a string that
-        describes the file.
-
-        :param filename: the name of the file
-        :type filename: str
-        :param file_size: the size of the file in bytes
-        :type file_size: int
-        :param file_hash: the hash of the file contents
-        :type file_hash: str
-        :return: a message describing the file
-        :rtype: str
-        """
-
-        # Get the opcode that corresponds to the 'file_description' command from the Protocol class
-        kind = Protocol.chat_opcodes['file_description']
-
-        # Concatenate the opcode, filename, file size, and file hash with the field separator
-        msg = f"{kind}{Protocol.FIELD_SEPARATOR}{filename}" \
-              f"{Protocol.FIELD_SEPARATOR}{file_size}" \
-              f"{Protocol.FIELD_SEPARATOR}{file_hash}"
-
-        # Return the resulting message
         return msg
 
     @staticmethod
