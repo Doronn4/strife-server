@@ -418,7 +418,6 @@ def handle_file_description(com, ip, params, raw):
         pass
 
     else:
-        print(params)
         db_handle = DBHandler('strife_db')
         chat_id = params['chat_id']
         sender = params['sender']
@@ -500,7 +499,6 @@ def handle_chat_history_request(com, chat_com, files_com, ip, params):
         chat_id = params['chat_id']
         history = db_handle.get_chat_history(chat_id)
         if history:
-            print(history, 'history')
             msg = Protocol.chat_history(history)
             chat_com.send_data(msg, ip)
 
@@ -616,6 +614,7 @@ def handle_voice_started(com, chat_com, files_com, ip, params):
         chat_id = params['chat_id']
         msg = Protocol.voice_started(chat_id)
         members = db_handle.get_group_members(chat_id)
+        print('voice started ', members)
         for member in members:
             member_ip = get_ip_by_username(member)
             if member_ip:
@@ -698,7 +697,6 @@ def handle_general_messages(general_com, chat_com, files_com, q):
     """
     while True:
         data, ip = q.get()
-        print(data)
 
         # If a user has disconnected
         if data == '':

@@ -217,16 +217,12 @@ class ServerCom:
             # Check if the socket is still connected to the server
             if soc and soc in self.open_clients.keys():
                 try:
-                    print('com1')
                     # encrypt the data
                     enc_data = AESCipher.encrypt(self.open_clients[soc][1], contents).encode()
-                    print('com2')
                     # Send the length of the data
                     soc.send(str(len(enc_data)).zfill(10).encode())
-                    print('com3')
                     # send the encrypted data
                     soc.send(enc_data)
-                    print('com4')
                 except socket.error:
                     # close the client, remove it from the list of open clients
                     self._close_client(soc)
