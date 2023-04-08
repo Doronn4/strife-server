@@ -96,7 +96,7 @@ class Protocol:
     @staticmethod
     def approve(target_opcode):
         """
-        Constructs an approve msg with the protocol
+        Constructs an approval msg with the protocol
         :param target_opcode: the opcode of the operation that was approved
         :return: the constructed message
         """

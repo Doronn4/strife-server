@@ -6,6 +6,9 @@ from PIL import Image
 
 
 class FileHandler:
+    """
+    A class that handles the saving and loading of files.
+    """
     
     PFP_SIZE = (100, 100)
     PFPS_PATH = '\\user-profiles'
@@ -45,8 +48,11 @@ class FileHandler:
         """
 
         resized_pfp = FileHandler._resize_image(contents)
-        with open(f'{FileHandler.base_path}{FileHandler.PFPS_PATH}\\user-{username}.png', 'wb') as f:
-            f.write(resized_pfp)
+        try:
+            with open(f'{FileHandler.base_path}{FileHandler.PFPS_PATH}\\user-{username}.png', 'wb') as f:
+                f.write(resized_pfp)
+        except Exception:
+            return None
 
         return f'user-{username}.png'
 
@@ -78,7 +84,6 @@ class FileHandler:
         :param chat_id: the id of the chat associated with the file.
         :param file_name: the name of the file.
         """
-
         with open(f'{FileHandler.base_path}{FileHandler.CHATS_PATH}\\{chat_id}\\{file_name}', 'wb') as f:
             f.write(contents)
 
@@ -92,8 +97,12 @@ class FileHandler:
         """
 
         contents = None
-        with open(f'{FileHandler.base_path}{FileHandler.CHATS_PATH}\\{chat_id}\\{file_name}', 'rb') as f:
-            contents = f.read()
+        # Check if the filepath exists
+        if os.path.exists(f'{FileHandler.base_path}{FileHandler.CHATS_PATH}\\{chat_id}\\{file_name}'):
+            # Read the file
+            with open(f'{FileHandler.base_path}{FileHandler.CHATS_PATH}\\{chat_id}\\{file_name}', 'rb') as f:
+                contents = f.read()
+
         return contents
 
     @staticmethod

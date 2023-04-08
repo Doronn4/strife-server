@@ -17,6 +17,54 @@ from src.core.cryptions import AESCipher
 from src.handlers.file_handler import FileHandler
 
 
+def check_password(password):
+    """
+    Function to check if a password is valid
+
+    :param password: The password to check
+    :type password: str
+    :return: True if the password is valid, False otherwise
+    :rtype: bool
+    """
+    is_valid = True
+
+    # Check if password is valid
+    if not password:
+        is_valid = False
+    elif len(password) > 20:
+        is_valid = False
+    elif not password.isalnum():
+        is_valid = False
+    elif len(password) < 3:
+        is_valid = False
+
+    return True
+
+
+def check_username(username):
+    """
+    Function to check if a username is valid
+
+    :param username: The username to check
+    :type username: str
+    :return: True if the username is valid, False otherwise
+    :rtype: bool
+    """
+    is_valid = True
+
+    # Check if username is valid
+    if not username:
+        is_valid = False
+    elif len(username) > 20:
+        is_valid = False
+    elif not username.isalnum():
+        is_valid = False
+    elif len(username) < 3:
+        is_valid = False
+
+    return True
+
+
 def handle_register(com, chat_com, files_com, ip, params):
     """
     Function to handle registering to the server
@@ -32,7 +80,6 @@ def handle_register(com, chat_com, files_com, ip, params):
     :param params: Dictionary of parameters of the message
     :type params: dict
     :return: None
-    :rtype: None
     """
     # Check if the user is already logged in
     if ip in logged_in_users.keys():
@@ -40,18 +87,27 @@ def handle_register(com, chat_com, files_com, ip, params):
 
     else:
         db_handle = DBHandler('strife_db')
-        username = params['username']
-        password = params['password']
-        hashed_password = hashlib.sha256(password.encode()).hexdigest()
-        flag = db_handle.add_user(username, hashed_password)
-        if flag:
-            approve_msg = Protocol.approve(params['opcode'])
-            com.send_data(approve_msg, ip)
-            print(f'INFO: New user registered - "{username}", {ip}')
-        else:
+        username = str(params['username'])
+        password = str(params['password'])
+
+        is_valid = check_username(username) and check_password(password)
+
+        if not is_valid:
             reject_msg = Protocol.reject(params['opcode'])
             com.send_data(reject_msg, ip)
             print(f'INFO: Register failed for {ip}')
+
+        else:
+            hashed_password = hashlib.sha256(password.encode()).hexdigest()
+            flag = db_handle.add_user(username, hashed_password)
+            if flag:
+                approve_msg = Protocol.approve(params['opcode'])
+                com.send_data(approve_msg, ip)
+                print(f'INFO: New user registered - "{username}", {ip}')
+            else:
+                reject_msg = Protocol.reject(params['opcode'])
+                com.send_data(reject_msg, ip)
+                print(f'INFO: Register failed for {ip}')
 
 
 def handle_login(com, chat_com, files_com, ip, params):
@@ -69,7 +125,6 @@ def handle_login(com, chat_com, files_com, ip, params):
     :param params: Dictionary of parameters of the message
     :type params: dict
     :return: None
-    :rtype: None
     """
     # Check if the user is already logged in
     if ip in logged_in_users.keys():
@@ -77,8 +132,8 @@ def handle_login(com, chat_com, files_com, ip, params):
 
     else:
         db_handle = DBHandler('strife_db')
-        username = params['username']
-        password = params['password']
+        username = str(params['username'])
+        password = str(params['password'])
         hashed_password = hashlib.sha256(password.encode()).hexdigest()
         if username in logged_in_users.values():
             flag = False
@@ -91,6 +146,13 @@ def handle_login(com, chat_com, files_com, ip, params):
             logged_in_users[ip] = username
             send_pending_friend_requests(username, com)
             send_pending_messages(username, com)
+
+            # Send the user his status
+            status = db_handle.get_user_status(username)
+            status_msg = Protocol.user_status(username, status)
+            print(status_msg, ip)
+            com.send_data(status_msg, ip)
+
             print(f'INFO: User logged in - "{username}", {ip}')
         else:
             reject_msg = Protocol.reject(params['opcode'])
@@ -113,14 +175,14 @@ def handle_friend_add(com, chat_com, files_com, ip, params):
     :param params: Dictionary of parameters of the message
     :type params: dict
     :return: None
-    :rtype: None
     """
     # Check if the user is logged in
     if ip in logged_in_users.keys():
         db_handle = DBHandler('strife_db')
-        friend_username = params['friend_username']
+        friend_username = str(params['friend_username'])
         adder_username = logged_in_users[ip]
 
+        # Check if the friend request is already pending
         is_already_pending = (
                                      adder_username in pending_friend_requests.keys() and
                                      pending_friend_requests[adder_username] == friend_username
@@ -129,12 +191,15 @@ def handle_friend_add(com, chat_com, files_com, ip, params):
                                      pending_friend_requests[friend_username] == adder_username
                              )
 
+        # Check if the friend request is valid
         if db_handle.can_add_friend(adder_username, friend_username) and not is_already_pending:
             friend_ip = get_ip_by_username(friend_username)
+            # Send the friend request to the friend
             if friend_ip:
                 msg = Protocol.friend_request_notify(adder_username, silent=False)
                 com.send_data(msg, friend_ip)
 
+            # Add the friend request to the pending requests
             pending_friend_requests[adder_username] = friend_username
 
         else:
@@ -159,13 +224,12 @@ def handle_friend_accept(com, chat_com, files_com, ip, params):
     :param params: Dictionary of parameters of the message
     :type params: dict
     :return: None
-    :rtype: None
     """
     if ip in logged_in_users.keys():
         # Get the username of the sender
         username = logged_in_users[ip]
         # Get the username of the friend
-        friend_username = params['friend_username']
+        friend_username = str(params['friend_username'])
 
         if friend_username in pending_friend_requests.keys() and pending_friend_requests[friend_username] == username:
             db_handle = DBHandler('strife_db')
@@ -180,7 +244,6 @@ def handle_friend_accept(com, chat_com, files_com, ip, params):
 
             msg = Protocol.friend_added(username, friends_key, chat_id)
             friend_ip = get_ip_by_username(friend_username)
-            print('friend ip', friend_ip)
 
             if friend_ip:
                 com.send_data(msg, get_ip_by_username(friend_username))
@@ -209,12 +272,11 @@ def handle_friend_remove(com, chat_com, files_com, ip, params):
     :param params: Dictionary of parameters of the message
     :type params: dict
     :return: None
-    :rtype: None
     """
     # Check if the user is logged in
     if ip in logged_in_users.keys():
         db_handle = DBHandler('strife_db')
-        friend_username = params['friend_username']
+        friend_username = str(params['friend_username'])
         remover_username = logged_in_users[ip]
 
         db_handle.remove_friend(remover_username, friend_username)
@@ -237,13 +299,12 @@ def handle_group_creation(com, chat_com, files_com, ip, params):
     :param params: Dictionary of parameters of the message
     :type params: dict
     :return: None
-    :rtype: None
     """
     # Check if the user is logged in
     if ip in logged_in_users.keys():
         db_handle = DBHandler('strife_db')
 
-        group_name = params['group_name']
+        group_name = str(params['group_name'])
         group_key = AESCipher.generate_key()
 
         creator_username = logged_in_users[ip]
@@ -277,15 +338,14 @@ def handle_add_group_member(com, chat_com, files_com, ip, params):
     :param params: Dictionary of parameters of the message
     :type params: dict
     :return: None
-    :rtype: None
     """
     # Check if the user is logged in
     if ip in logged_in_users.keys():
         db_handle = DBHandler('strife_db')
 
         chat_id = params['chat_id']
-        username = params['new_member_username']
-        group_key = params['group_key']
+        username = str(params['new_member_username'])
+        group_key = str(params['group_key'])
         adder = logged_in_users[ip]
 
         flag = db_handle.add_to_group(chat_id, adder, username)
@@ -316,7 +376,6 @@ def handle_request_chats(com, chat_com, files_com, ip, params):
     :param params: Dictionary of parameters of the message
     :type params: dict
     :return: None
-    :rtype: None
     """
     # Check if the user is logged in
     if ip in logged_in_users.keys():
@@ -346,13 +405,24 @@ def handle_username_change(com, chat_com, files_com, ip, params):
     :param params: Dictionary of parameters of the message
     :type params: dict
     :return: None
-    :rtype: None
     """
     if ip not in logged_in_users.keys():
         com.send_data(Protocol.reject(params['opcode']), ip)
     else:
         db_handle = DBHandler('strife_db')
-        # TODO: do the rest
+        new_username = str(params['new_username'])
+        old_username = logged_in_users[ip]
+
+        # Check if the new username is valid
+        if not check_username(new_username):
+            com.send_data(Protocol.reject(params['opcode']), ip)
+        else:
+            # Check if the new username is already taken
+            if db_handle.change_username(old_username, new_username):
+                logged_in_users[ip] = new_username
+                com.send_data(Protocol.approve(params['opcode']), ip)
+            else:
+                com.send_data(Protocol.reject(params['opcode']), ip)
 
 
 def handle_status_change(com, chat_com, files_com, ip, params):
@@ -370,25 +440,69 @@ def handle_status_change(com, chat_com, files_com, ip, params):
     :param params: Dictionary of parameters of the message
     :type params: dict
     :return: None
-    :rtype: None
     """
     if ip in logged_in_users.keys():
         db_handle = DBHandler('strife_db')
-        new_status = params['new_status']
-        db_handle.update_user_status(logged_in_users[ip], new_status)
-        msg = Protocol.user_status(logged_in_users[ip], new_status)
-        com.send_data(msg, ip)
+        new_status = str(params['new_status'])
+
+        # Check new status
+        if 0 < len(new_status) < 20:
+            db_handle.update_user_status(logged_in_users[ip], new_status)
+            msg = Protocol.user_status(logged_in_users[ip], new_status)
+            com.send_data(msg, ip)
+        else:
+            com.send_data(Protocol.reject(params['opcode']), ip)
+
     else:
         com.send_data(Protocol.reject(params['opcode']), ip)
 
 
 def handle_password_change(com, chat_com, files_com, ip, params):
-    pass
+    """
+    Function to handle a password change
+
+    :param com: The general communication object of the server
+    :type com: ServerCom
+    :param chat_com: The chats communication object of the server
+    :type chat_com: ServerCom
+    :param files_com: The files communication object of the server
+    :type files_com: ServerCom
+    :param ip: IP address of the client
+    :type ip: str
+    :param params: Dictionary of parameters of the message
+    :type params: dict
+    :return: None
+    """
+    if ip not in logged_in_users.keys():
+        com.send_data(Protocol.reject(params['opcode']), ip)
+    else:
+        db_handle = DBHandler('strife_db')
+        new_password = params['new_password']
+        # Check if the new password is valid
+        is_valid = check_password(new_password)
+        if not is_valid:
+            com.send_data(Protocol.reject(params['opcode']), ip)
+        else:
+            # Hash the new password
+            hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
+            if db_handle.change_password(logged_in_users[ip], hashed_password):
+                com.send_data(Protocol.approve(params['opcode']), ip)
+            else:
+                com.send_data(Protocol.reject(params['opcode']), ip)
 
 
 def handle_text_message(com, ip, params, raw):
     """
     Handles a text message sent from a client in some chat
+    :param com: The general communication object of the server
+    :type com: ServerCom
+    :param ip: IP address of the client
+    :type ip: str
+    :param params: Dictionary of parameters of the message
+    :type params: dict
+    :param raw: The raw message
+    :type raw: str
+    :return: None
     """
     # Check if the user is logged in
     if ip not in logged_in_users.keys():
@@ -412,6 +526,18 @@ def handle_text_message(com, ip, params, raw):
 
 
 def handle_file_description(com, ip, params, raw):
+    """
+    Handles a file description sent from a client in some chat
+    :param com: The general communication object of the server
+    :type com: ServerCom
+    :param ip: IP address of the client
+    :type ip: str
+    :param params: Dictionary of parameters of the message
+    :type params: dict
+    :param raw: The raw message
+    :type raw: str
+    :return: None
+    """
     # Check if the user is logged in
     if ip not in logged_in_users.keys():
         # do something
@@ -448,7 +574,6 @@ def handle_request_picture(com, chat_com, files_com, ip, params):
     :param params: Dictionary of parameters of the message
     :type params: dict
     :return: None
-    :rtype: None
     """
     if ip not in logged_in_users.keys():
         com.send_data(Protocol.reject(params['opcode']), ip)
@@ -463,6 +588,16 @@ def handle_request_picture(com, chat_com, files_com, ip, params):
 
 
 def handle_update_pfp(com, ip, params):
+    """
+    Function to handle a profile picture update
+    :param com: The general communication object of the server
+    :type com: ServerCom
+    :param ip: IP address of the client
+    :type ip: str
+    :param params: Dictionary of parameters of the message
+    :type params: dict
+    :return: None
+    """
     if ip not in logged_in_users.keys():
         com.send_data(Protocol.reject(params['opcode']), ip)
     else:
@@ -470,9 +605,12 @@ def handle_update_pfp(com, ip, params):
         b64_picture = params['picture']
         pic_contents = base64.b64decode(b64_picture)
         path = FileHandler.save_pfp(pic_contents, logged_in_users[ip])
-        db_handle.update_user_picture(logged_in_users[ip], path)
-        msg = Protocol.profile_picture(logged_in_users[ip], b64_picture)
-        com.send_file(msg, ip)
+        if not path:
+            com.send_data(Protocol.reject(params['opcode']), ip)
+        else:
+            db_handle.update_user_picture(logged_in_users[ip], path)
+            msg = Protocol.profile_picture(logged_in_users[ip], b64_picture)
+            com.send_file(msg, ip)
 
 
 def handle_chat_history_request(com, chat_com, files_com, ip, params):
@@ -490,7 +628,6 @@ def handle_chat_history_request(com, chat_com, files_com, ip, params):
     :param params: Dictionary of parameters of the message
     :type params: dict
     :return: None
-    :rtype: None
     """
     if ip not in logged_in_users.keys():
         com.send_data(Protocol.reject(params['opcode']), ip)
@@ -518,7 +655,6 @@ def handle_request_group_members(com, chat_com, files_com, ip, params):
     :param params: Dictionary of parameters of the message
     :type params: dict
     :return: None
-    :rtype: None
     """
     if ip not in logged_in_users.keys():
         com.send_data(Protocol.reject(params['opcode']), ip)
@@ -531,6 +667,16 @@ def handle_request_group_members(com, chat_com, files_com, ip, params):
 
 
 def handle_file_in_chat(com, ip, params):
+    """
+    Function to handle a file in a chat
+    :param com: The general communication object of the server
+    :type com: ServerCom
+    :param ip: IP address of the client
+    :type ip: str
+    :param params: Dictionary of parameters of the message
+    :type params: dict
+    :return: None
+    """
     if ip not in logged_in_users.keys():
         com.send_data(Protocol.reject(params['opcode']), ip)
     else:
@@ -539,9 +685,12 @@ def handle_file_in_chat(com, ip, params):
         filename = params['file_name']
         file_contents = params['file']
         file_hash = hashlib.sha256(file_contents.encode()).hexdigest()
-        FileHandler.save_file(file_contents.encode(), chat_id, filename)
-
-        db_handle.add_file(chat_id, filename, file_hash)
+        try:
+            FileHandler.save_file(file_contents.encode(), chat_id, filename)
+        except Exception:
+            com.send_data(Protocol.reject(params['opcode']), ip)
+        else:
+            db_handle.add_file(chat_id, filename, file_hash)
 
 
 def handle_request_file(com, chat_com, files_com, ip, params):
@@ -559,7 +708,6 @@ def handle_request_file(com, chat_com, files_com, ip, params):
     :param params: Dictionary of parameters of the message
     :type params: dict
     :return: None
-    :rtype: None
     """
 
     # Check if the IP address is in the logged_in_users dictionary
@@ -567,7 +715,6 @@ def handle_request_file(com, chat_com, files_com, ip, params):
         # If the IP address is not logged in, send a rejection message to the client through the com object
         com.send_data(Protocol.reject(params['opcode']), ip)
     else:
-        print('file requested')
         # If the IP address is logged in, create a new DBHandler object with the 'strife_db' database
         db_handle = DBHandler('strife_db')
         # Get the file hash from the parameters dictionary
@@ -580,14 +727,32 @@ def handle_request_file(com, chat_com, files_com, ip, params):
             if db_handle.is_in_group(chat_id, username=logged_in_users[ip]):
                 # If the client is a member of the group, load the file contents and encode them in base64 format
                 file_contents = FileHandler.load_file(chat_id, file_name)
-                b64_contents = base64.b64encode(file_contents).decode()
-                # Create a message using the Protocol module's send_file() method
-                msg = Protocol.send_file(chat_id, file_name, b64_contents)
-                # Send the message to the files_com object to be forwarded to the file server
-                files_com.send_file(msg, ip)
+                if not file_contents:
+                    com.send_data(Protocol.reject(params['opcode']), ip)
+                    db_handle.remove_file(file_hash)
+                else:
+                    b64_contents = base64.b64encode(file_contents).decode()
+                    # Create a message using the Protocol module's send_file() method
+                    msg = Protocol.send_file(chat_id, file_name, b64_contents)
+                    # Send the message to the files_com object to be forwarded to the file server
+                    files_com.send_file(msg, ip)
 
 
 def handle_request_status(com, chat_com, files_com, ip, params):
+    """
+    Function to handle a request for the status of a user
+    :param com: The general communication object of the server
+    :type com: ServerCom
+    :param chat_com: The chats communication object of the server
+    :type chat_com: ServerCom
+    :param files_com: The files communication object of the server
+    :type files_com: ServerCom
+    :param ip: IP address of the client
+    :type ip: str
+    :param params: Dictionary of parameters of the message
+    :type params: dict
+    :return: None
+    """
     # Check if the IP address is in the logged_in_users dictionary
     if ip not in logged_in_users.keys():
         # If the IP address is not logged in, send a rejection message to the client through the com object
@@ -605,6 +770,20 @@ def handle_request_status(com, chat_com, files_com, ip, params):
 
 
 def handle_voice_started(com, chat_com, files_com, ip, params):
+    """
+    Function to handle a voice started message from a client
+    :param com: The general communication object of the server
+    :type com: ServerCom
+    :param chat_com: The chats communication object of the server
+    :type chat_com: ServerCom
+    :param files_com: The files communication object of the server
+    :type files_com: ServerCom
+    :param ip: IP address of the client
+    :type ip: str
+    :param params: Dictionary of parameters of the message
+    :type params: dict
+    :return: None
+    """
     # Check if the IP address is in the logged_in_users dictionary
     if ip not in logged_in_users.keys():
         # If the IP address is not logged in, send a rejection message to the client through the com object
@@ -614,14 +793,27 @@ def handle_voice_started(com, chat_com, files_com, ip, params):
         chat_id = params['chat_id']
         msg = Protocol.voice_started(chat_id)
         members = db_handle.get_group_members(chat_id)
-        print('voice started ', members)
         for member in members:
             member_ip = get_ip_by_username(member)
-            if member_ip:
+            if member_ip and member_ip != ip:
                 com.send_data(msg, member_ip)
 
 
 def handle_video_started(com, chat_com, files_com, ip, params):
+    """
+    Function to handle a video started message from a client
+    :param com: The general communication object of the server
+    :type com: ServerCom
+    :param chat_com: The chats communication object of the server
+    :type chat_com: ServerCom
+    :param files_com: The files communication object of the server
+    :type files_com: ServerCom
+    :param ip: IP address of the client
+    :type ip: str
+    :param params: Dictionary of parameters of the message
+    :type params: dict
+    :return: None
+    """
     # Check if the IP address is in the logged_in_users dictionary
     if ip not in logged_in_users.keys():
         # If the IP address is not logged in, send a rejection message to the client through the com object
@@ -633,11 +825,25 @@ def handle_video_started(com, chat_com, files_com, ip, params):
         members = db_handle.get_group_members(chat_id)
         for member in members:
             member_ip = get_ip_by_username(member)
-            if member_ip:
+            if member_ip and member_ip != ip:
                 com.send_data(msg, member_ip)
 
 
 def handle_voice_join(com, chat_com, files_com, ip, params):
+    """
+    Function to handle a voice join message from a client
+    :param com: The general communication object of the server
+    :type com: ServerCom
+    :param chat_com: The chats communication object of the server
+    :type chat_com: ServerCom
+    :param files_com: The files communication object of the server
+    :type files_com: ServerCom
+    :param ip: IP address of the client
+    :type ip: str
+    :param params: Dictionary of parameters of the message
+    :type params: dict
+    :return: None
+    """
     # Check if the IP address is in the logged_in_users dictionary
     if ip not in logged_in_users.keys():
         # If the IP address is not logged in, send a rejection message to the client through the com object
@@ -652,16 +858,31 @@ def handle_voice_join(com, chat_com, files_com, ip, params):
         members = db_handle.get_group_members(chat_id)
         for member in members:
             member_ip = get_ip_by_username(member)
-            if member_ip:
+            if member_ip and member_ip != ip:
                 com.send_data(msg, member_ip)
                 online_members_ips.append(member_ip)
                 online_members_names.append(member)
 
         msg = Protocol.voice_call_info(chat_id, online_members_ips, online_members_names)
+        print('send info', msg)
         com.send_data(msg, ip)
 
 
 def handle_video_join(com, chat_com, files_com, ip, params):
+    """
+    Function to handle a video join message from a client
+    :param com: The general communication object of the server
+    :type com: ServerCom
+    :param chat_com: The chats communication object of the server
+    :type chat_com: ServerCom
+    :param files_com: The files communication object of the server
+    :type files_com: ServerCom
+    :param ip: IP address of the client
+    :type ip: str
+    :param params: Dictionary of parameters of the message
+    :type params: dict
+    :return: None
+    """
     # Check if the IP address is in the logged_in_users dictionary
     if ip not in logged_in_users.keys():
         # If the IP address is not logged in, send a rejection message to the client through the com object
@@ -676,7 +897,7 @@ def handle_video_join(com, chat_com, files_com, ip, params):
         members = db_handle.get_group_members(chat_id)
         for member in members:
             member_ip = get_ip_by_username(member)
-            if member_ip:
+            if member_ip and member_ip != ip:
                 com.send_data(msg, member_ip)
                 online_members_ips.append(member_ip)
                 online_members_names.append(member)
@@ -688,12 +909,12 @@ def handle_video_join(com, chat_com, files_com, ip, params):
 def handle_general_messages(general_com, chat_com, files_com, q):
     """
     Handle the general messages
-    :param chat_com:
-    :type chat_com:
-    :param general_com:
-    :param files_com:
-    :param q:
-    :return:
+    :param chat_com: The chats communication object of the server
+    :type chat_com: ServerCom
+    :param general_com: The general communication object of the server
+    :param files_com: The files communication object of the server
+    :param q: The queue of messages
+    :return: None
     """
     while True:
         data, ip = q.get()
@@ -714,6 +935,12 @@ def handle_general_messages(general_com, chat_com, files_com, q):
 
 
 def handle_chats_messages(com, q):
+    """
+    Handle the chats messages
+    :param com: The chats communication object of the server
+    :param q: The queue of messages
+    :return: None
+    """
     while True:
         data, ip = q.get()
         try:
@@ -726,6 +953,12 @@ def handle_chats_messages(com, q):
 
 
 def handle_files_messages(com, q):
+    """
+    Handle the files messages
+    :param com: The files communication object of the server
+    :param q: The queue of messages
+    :return: None
+    """
     while True:
         data, ip = q.get()
         try:
@@ -738,6 +971,12 @@ def handle_files_messages(com, q):
 
 
 def send_pending_friend_requests(username, com):
+    """
+    Send pending friend requests to a user
+    :param username: The username of the user
+    :param com: The general communication object of the server
+    :return: None
+    """
     if username in logged_in_users.values():
         ip = get_ip_by_username(username)
         pending_requests = [req_sender for req_sender, receiver in pending_friend_requests.items() if
@@ -749,6 +988,12 @@ def send_pending_friend_requests(username, com):
 
 
 def add_pending_message(message, username):
+    """
+    Add a pending message to the pending messages dictionary
+    :param message: The message to add
+    :param username: The username of the user to send the message to
+    :return: None
+    """
     if username in pending_messages.keys():
         pending_messages[username].append(message)
     else:
@@ -756,16 +1001,27 @@ def add_pending_message(message, username):
 
 
 def send_pending_messages(username, com):
+    """
+    Send pending messages to a user
+    :param username: The username of the user
+    :param com: The general communication object of the server
+    :return: None
+    """
     if username in logged_in_users.values():
         ip = get_ip_by_username(username)
         if username in pending_messages.keys():
             messages = pending_messages[username]
             for message in messages:
-                print('sent pending to ', username, ip, message)
                 com.send_data(message, ip)
 
 
 def send_group_members(com, chat_id):
+    """
+    Send the group members to all the group members
+    :param com: The chats communication object of the server
+    :param chat_id: The chat id of the group
+    :return: None
+    """
     db_handle = DBHandler('strife_db')
     members = db_handle.get_group_members(chat_id)
     msg = Protocol.group_names(chat_id, members)
@@ -776,10 +1032,19 @@ def send_group_members(com, chat_id):
 
 
 def get_ip_by_username(username):
+    """
+    Get the ip of a user by his username
+    :param username: The username of the user
+    :return: The ip of the user, or None if not found
+    """
     ips = [target_ip for target_ip, name in logged_in_users.items() if name == username]
-    return ips[0] if len(ips) > 0 else None
+    try:
+        return ips[0]
+    except IndexError:
+        return None
 
 
+# The dictionary of the general messages
 general_dict = {
     'register': handle_register,
     'sign_in': handle_login,
@@ -804,20 +1069,25 @@ general_dict = {
 
 }
 
+# The dictionary of the chats messages
 messages_dict = {
     'text_message': handle_text_message,
     'file_description': handle_file_description
 }
 
+# The dictionary of the files messages
 files_dict = {
     'profile_pic_change': handle_update_pfp,
     'file_in_chat': handle_file_in_chat
 }
 
+# The dictionary of the users with the key being the ip and the value being the username
 logged_in_users = {}
 
+# The dictionary of the pending friend requests with the key being the sender and the value being the receiver
 pending_friend_requests = {}
 
+# The dictionary of the pending messages with the key being the username and the value being the list of messages
 pending_messages = {}
 
 

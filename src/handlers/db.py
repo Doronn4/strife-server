@@ -1,7 +1,6 @@
 import random
 import sqlite3
 import datetime
-import hashlib
 import time
 
 
@@ -19,6 +18,7 @@ class DBHandler:
 
         # The max length of a chat message
         self.MAX_MSG_LEN = 200  # Characters
+        self.MAX_MESSAGES_HISTORY = 50  # Messages
 
         # Create the tables
         self._create_users_table()
@@ -96,6 +96,10 @@ class DBHandler:
         self.cursor.execute(sql)
 
     def _create_friends_table(self):
+        """
+        Creates the friends table in the db
+        :return: -
+        """
         sql = f"CREATE TABLE IF NOT EXISTS friends_table (" \
               f"user_id INT," \
               f" friend_id INT," \
@@ -140,12 +144,40 @@ class DBHandler:
         """
         Check if a user exists in the database by his id
         :param user_id: The user's id
-        :return: True if exists, false if doesn't
+        :return: True if exists, false if it doesn't
         """
         sql = f"SELECT * from users_table WHERE unique_id=?"
         self.cursor.execute(sql, [user_id])
         result = self.cursor.fetchall()
         return len(result) == 1
+
+    def change_password(self, username, new_password):
+        """
+        Changes a user's password
+        :param username: The user's username
+        :param new_password: The user's new password
+        :return: -
+        """
+        sql = f"UPDATE users_table SET password=? WHERE username=?"
+        self.cursor.execute(sql, [new_password, username])
+        self.con.commit()
+
+    def change_username(self, old_username, new_username):
+        """
+        Changes a user's username
+        :param old_username: The user's old username
+        :param new_username: The user's new username
+        :return: True if the username was changed, false if not
+        """
+        flag = True
+        if self._user_exists(new_username):
+            flag = False
+        else:
+            sql = f"UPDATE users_table SET username=? WHERE username=?"
+            self.cursor.execute(sql, [new_username, old_username])
+            self.con.commit()
+
+        return flag
 
     def add_friend(self, username, friend):
         """
@@ -171,6 +203,12 @@ class DBHandler:
         return chat_id
 
     def can_add_friend(self, username, friend):
+        """
+        Checks if a pair of friends can be added to the database
+        :param username: The username of the first friend
+        :param friend: The username of the second friend
+        :return: True if the pair can be added, false if not
+        """
         user_id = self._get_unique_id(username)
         friend_id = self._get_unique_id(friend)
         flag = True
@@ -271,6 +309,11 @@ class DBHandler:
             self.con.commit()
 
     def get_user_picture_path(self, username) -> str:
+        """
+        Get the path of a user's profile picture
+        :param username: The user's username
+        :return: The path of the user's profile picture
+        """
         path = None
         if self._user_exists(username):
             sql = "SELECT picture FROM users_table WHERE username=?"
@@ -332,6 +375,11 @@ class DBHandler:
 
     @staticmethod
     def _group_name_valid(group_name):
+        """
+        Check if a group name is valid
+        :param group_name: The group's name
+        :return: True if the name is valid or false if not
+        """
         flag = True
 
         if group_name.startswith('PRIVATE') and len(group_name.split('%%')) == 3:
@@ -392,6 +440,11 @@ class DBHandler:
         return result
 
     def get_group_name(self, chat_id) -> str:
+        """
+        Get the name of a group
+        :param chat_id: The chat id of the group
+        :return: The group's name
+        """
         result = None
         if self._group_exists(chat_id):
             sql = f"SELECT group_name from groups_table WHERE chat_id =?"
@@ -401,6 +454,11 @@ class DBHandler:
         return result
 
     def _is_private_chat(self, chat_id):
+        """
+        Checks if a chat is a private chat
+        :param chat_id: The chat id of the chat
+        :return: True if the chat is a private chat, false if not
+        """
         chat_name = self.get_group_name(chat_id)
         return chat_name.startswith('PRIVATE') and len(chat_name.split('%%')) == 3
 
@@ -578,6 +636,18 @@ class DBHandler:
         self.cursor.execute(sql, data)
         self.con.commit()
 
+    def remove_file(self, file_hash):
+        """
+        Remove a file from the database
+        :param file_hash: The hash of the file
+        :type file_hash: str
+        :return: -
+        :rtype: -
+        """
+        sql = f"DELETE FROM files_table WHERE file_hash=?"
+        self.cursor.execute(sql, [file_hash])
+        self.con.commit()
+
     def add_message(self, chat_id, sender_username, message: str):
         """
         Add a message sent on a chat to the database
@@ -606,9 +676,20 @@ class DBHandler:
         self.cursor.execute(sql, data)
         self.con.commit()
 
+        # Check the amount of messages in the chat that are stored in the database,
+        # and delete the oldest ones if there are more than 30
+        sql = f"SELECT * FROM messages_table WHERE chat_id=?"
+        self.cursor.execute(sql, [chat_id])
+        result = self.cursor.fetchall()
+        if len(result) > self.MAX_MESSAGES_HISTORY:
+            # Delete the oldest message
+            sql = f"DELETE FROM messages_table WHERE chat_id=? AND timestamp=?"
+            self.cursor.execute(sql, [chat_id, result[0][1]])
+            self.con.commit()
+
     def check_credentials(self, username, password) -> bool:
         """
-        Checks if there username and the password match a record in the database
+        Checks if their username and the password match a record in the database
         :param username: The username
         :param password: The password
         :return: True if the username and password match, false if not
@@ -623,7 +704,7 @@ class DBHandler:
         """
         Get the chat history of a group/chat
         :param chat_id: The chat id
-        :return: A list of every message and it's sender in the chat
+        :return: A list of every message, and it's sender in the chat
         :rtype: list
         """
         if not self._group_exists(chat_id):
@@ -653,23 +734,3 @@ class DBHandler:
         self.cursor.execute(sql, [unique_id])
         result = self.cursor.fetchall()
         return result
-
-
-if __name__ == '__main__':
-
-    # Test adding user and logging in
-    my_db = DBHandler('test_db')
-    my_db.add_user('doron2', '123')
-    my_db.add_user('itay3108', 'dwkodkw')
-    my_db.add_user('itamar', '1234j')
-
-    my_db.add_friend('doron2', 'itay3108')
-    my_db.add_friend('doron2', 'itamar')
-    print(my_db.get_friends_of('doron2'))
-
-    id = my_db.create_group('iftah fans', 'itay3108')
-    my_db.add_to_group(id, 'itay3108', 'doron2')
-
-    print(my_db.get_group_members(id))
-    print(my_db.get_chats_of('itay3108'))
-
