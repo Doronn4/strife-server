@@ -150,7 +150,6 @@ def handle_login(com, chat_com, files_com, ip, params):
             # Send the user his status
             status = db_handle.get_user_status(username)
             status_msg = Protocol.user_status(username, status)
-            print(status_msg, ip)
             com.send_data(status_msg, ip)
 
             print(f'INFO: User logged in - "{username}", {ip}')
@@ -507,7 +506,6 @@ def handle_text_message(com, ip, params, raw):
     # Check if the user is logged in
     if ip not in logged_in_users.keys():
         com.send_data(Protocol.reject(params['opcode']), ip)
-        pass
 
     else:
         db_handle = DBHandler('strife_db')
@@ -540,8 +538,7 @@ def handle_file_description(com, ip, params, raw):
     """
     # Check if the user is logged in
     if ip not in logged_in_users.keys():
-        # do something
-        pass
+        com.send_data(Protocol.reject(params['opcode']), ip)
 
     else:
         db_handle = DBHandler('strife_db')
@@ -579,7 +576,7 @@ def handle_request_picture(com, chat_com, files_com, ip, params):
         com.send_data(Protocol.reject(params['opcode']), ip)
     else:
         db_handle = DBHandler('strife_db')
-        username = params['pfp_username']
+        username = str(params['pfp_username'])
         pic_path = db_handle.get_user_picture_path(username)
         pic_contents = FileHandler.load_pfp(path=pic_path)
         str_contents = base64.b64encode(pic_contents).decode()
@@ -864,7 +861,6 @@ def handle_voice_join(com, chat_com, files_com, ip, params):
                 online_members_names.append(member)
 
         msg = Protocol.voice_call_info(chat_id, online_members_ips, online_members_names)
-        print('send info', msg)
         com.send_data(msg, ip)
 
 
