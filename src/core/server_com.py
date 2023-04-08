@@ -85,7 +85,7 @@ class ServerCom:
                         else:
                             try:
                                 # Decrypt the data and decode it back to a string
-                                dec_data = AESCipher.decrypt(self.open_clients[current_socket][1], data)
+                                dec_data = AESCipher.decrypt(self.open_clients[current_socket][1], data.decode())
                             except Exception:
                                 self._close_client(current_socket)
                             else:
