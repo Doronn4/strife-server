@@ -10,7 +10,7 @@ class FileHandler:
     A class that handles the saving and loading of files.
     """
     
-    PFP_SIZE = (100, 100)
+    PFP_SIZE = (300, 300)
     PFPS_PATH = '\\user-profiles'
     CHATS_PATH = '\\chats'
 
@@ -72,6 +72,8 @@ class FileHandler:
         if path:
             with open(f'{FileHandler.base_path}{FileHandler.PFPS_PATH}\\{path}', 'rb') as f:
                 picture = f.read()
+        else:
+            picture = None
 
         return picture
 

@@ -197,7 +197,7 @@ class DBHandler:
             self.cursor.execute(sql, data)
             self.con.commit()
             # Create a group to represent the private chat between two friends
-            chat_id = self._create_group(f'PRIVATE%%{username}%%{friend}', username)
+            chat_id = self._create_group(f'PRIVATE%%{user_id}%%{friend_id}', username)
             self._add_to_group(chat_id, friend)
 
         return chat_id
@@ -733,4 +733,24 @@ class DBHandler:
                 """
         self.cursor.execute(sql, [unique_id])
         result = self.cursor.fetchall()
+
+        # Loop over the result and check for a private chat,
+        # for each private chat, replace the unique id with the username
+
+        # Private chat name structure: PRIVATE%%username%%username
+
+        for i in range(len(result)):
+            # Check if it's a private chat
+            if result[i][1].startswith('PRIVATE') and len(result[i][1].split('%%')) == 3:
+                # get the unique ids of the participants
+                id1, id2 = result[i][1].split('%%')[1:]
+                sql = f"SELECT username FROM users_table WHERE unique_id=?"
+                # Get the usernames of the participants
+                self.cursor.execute(sql, [id1])
+                username1 = self.cursor.fetchall()[0][0]
+                self.cursor.execute(sql, [id2])
+                username2 = self.cursor.fetchall()[0][0]
+                # Replace the unique id with the username
+                result[i] = (result[i][0], result[i][1].replace(id1, username1).replace(id2, username2))
+
         return result

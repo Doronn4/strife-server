@@ -21,7 +21,8 @@ class Protocol:
         'chats_list': 10,
         'group_members': 11,
         'user_status': 12,
-        'friend_added': 13
+        'friend_added': 13,
+        'friend_list': 14
     }
     chat_opcodes = {
         'text_message': 1,
@@ -54,7 +55,9 @@ class Protocol:
         17: 'request_user_picture',
         18: 'request_user_status',
         19: 'request_chats',
-        20: 'accept_friend'
+        20: 'accept_friend',
+        21: 'request_friend_list',
+        22: 'logout'
     }
     c_chat_opcodes = {
         1: 'text_message',
@@ -90,7 +93,9 @@ class Protocol:
         'accept_friend': ('friend_username', 'is_accepted',),
         'profile_pic_change': ('picture',),
         'file_in_chat': ('chat_id', 'file_name', 'file'),
-        'file_description': ('chat_id', 'sender', 'file_name', 'file_size', 'file_hash',)
+        'file_description': ('chat_id', 'sender', 'file_name', 'file_size', 'file_hash',),
+        'request_friend_list': (),
+        'logout': ()
     }
 
     @staticmethod
@@ -133,6 +138,21 @@ class Protocol:
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}" \
               f"{sender_username}{Protocol.FIELD_SEPARATOR}{int(silent)}"
+        # Return the message after protocol
+        return msg
+
+    @staticmethod
+    def friend_list(friends_list):
+        """
+        Constructs a message with opcode 'friends_list' and the list of friends
+        :param friends_list: The list of friends
+        :return: the constructed message
+        """
+        # Get the opcode of register
+        opcode = Protocol.general_opcodes['friend_list']
+        # Construct the message
+        msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}" \
+              f"{Protocol.LIST_SEPARATOR.join(friends_list)}"
         # Return the message after protocol
         return msg
 

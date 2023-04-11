@@ -144,8 +144,10 @@ def handle_login(com, chat_com, files_com, ip, params):
             com.send_data(approve_msg, ip)
             # Add the user to the dict of logged-in users with his ip as the key and username as value
             logged_in_users[ip] = username
+
+            # Start a thread to send the pending friend requests and messages after waiting for 2 seconds
             send_pending_friend_requests(username, com)
-            send_pending_messages(username, com)
+            send_pending_messages(username, chat_com)
 
             # Send the user his status
             status = db_handle.get_user_status(username)
@@ -230,28 +232,35 @@ def handle_friend_accept(com, chat_com, files_com, ip, params):
         # Get the username of the friend
         friend_username = str(params['friend_username'])
 
-        if friend_username in pending_friend_requests.keys() and pending_friend_requests[friend_username] == username:
-            db_handle = DBHandler('strife_db')
-            chat_id = db_handle.add_friend(username, friend_username)
+        # Check if the friend request is accepted
+        if bool(params['is_accepted']):
+            # Check if the friend request is pending
+            if friend_username in pending_friend_requests.keys() \
+                    and pending_friend_requests[friend_username] == username:
+                db_handle = DBHandler('strife_db')
+                # Add the friend to the database and create a chat for them
+                chat_id = db_handle.add_friend(username, friend_username)
+                # Create a chat folder for the chat
+                FileHandler.create_chat(chat_id)
+                # Generate a key for the chat
+                friends_key = AESCipher.generate_key()
 
-            FileHandler.create_chat(chat_id)
+                # Send the friend added message to the friend
+                msg = Protocol.friend_added(friend_username, friends_key, chat_id)
+                com.send_data(msg, ip)
 
-            friends_key = AESCipher.generate_key()
+                # Send the friend added message to the user
+                msg = Protocol.friend_added(username, friends_key, chat_id)
+                friend_ip = get_ip_by_username(friend_username)
+                if friend_ip:
+                    com.send_data(msg, get_ip_by_username(friend_username))
+                else:
+                    # If the friend is not online, add the message to his pending messages
+                    add_pending_message(msg, friend_username)
 
-            msg = Protocol.friend_added(friend_username, friends_key, chat_id)
-            com.send_data(msg, ip)
-
-            msg = Protocol.friend_added(username, friends_key, chat_id)
-            friend_ip = get_ip_by_username(friend_username)
-
-            if friend_ip:
-                com.send_data(msg, get_ip_by_username(friend_username))
+                del pending_friend_requests[friend_username]
             else:
-                add_pending_message(msg, friend_username)
-
-            del pending_friend_requests[friend_username]
-        else:
-            com.send_data(Protocol.reject(params['opcode']), ip)
+                com.send_data(Protocol.reject(params['opcode']), ip)
     else:
         com.send_data(Protocol.reject(params['opcode']), ip)
 
@@ -347,13 +356,17 @@ def handle_add_group_member(com, chat_com, files_com, ip, params):
         group_key = str(params['group_key'])
         adder = logged_in_users[ip]
 
+        # Add the user to the group in the database and check if the operation was successful
         flag = db_handle.add_to_group(chat_id, adder, username)
 
+        # If the operation was successful, send the user a message that he was added to the group
         if flag:
             added_msg = Protocol.added_to_group(db_handle.get_group_name(chat_id), chat_id, group_key)
             com.send_data(added_msg, get_ip_by_username(username))
+            # Send the group members to the user
             send_group_members(com, chat_id)
 
+        # Send a message to the user that sent the request
         msg = Protocol.approve(params['opcode']) if flag else Protocol.reject(params['opcode'])
         com.send_data(msg, ip)
     else:
@@ -381,8 +394,11 @@ def handle_request_chats(com, chat_com, files_com, ip, params):
         db_handle = DBHandler('strife_db')
 
         username = logged_in_users[ip]
+        # Get the user's chats
         chats = db_handle.get_chats_of(username)
+        # Check if the user has any chats
         if len(chats) > 0:
+            # Send the chats list to the user
             msg = Protocol.chats_list(chats)
             com.send_data(msg, ip)
     else:
@@ -477,6 +493,13 @@ def handle_password_change(com, chat_com, files_com, ip, params):
     else:
         db_handle = DBHandler('strife_db')
         new_password = params['new_password']
+        old_password = params['old_password']
+
+        # Check if the old password is correct
+        if not db_handle.check_credentials(logged_in_users[ip], old_password):
+            com.send_data(Protocol.reject(params['opcode']), ip)
+            return
+
         # Check if the new password is valid
         is_valid = check_password(new_password)
         if not is_valid:
@@ -484,6 +507,8 @@ def handle_password_change(com, chat_com, files_com, ip, params):
         else:
             # Hash the new password
             hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
+
+            # Change the password in the database and send the response
             if db_handle.change_password(logged_in_users[ip], hashed_password):
                 com.send_data(Protocol.approve(params['opcode']), ip)
             else:
@@ -512,14 +537,18 @@ def handle_text_message(com, ip, params, raw):
         chat_id = params['chat_id']
         sender = params['sender_username']
 
+        # Encode the message to base64
         b64_raw = base64.b64encode(raw.encode()).decode()
+        # Add the encoded message to the database
         db_handle.add_message(chat_id, sender, b64_raw)
+        # Get the names of the members of the chat
         group_members_names = db_handle.get_group_members(chat_id)
-
+        # Get the IPs of the members of the chat
         connected_members_ips = [get_ip_by_username(member_name)
                                  for member_name in group_members_names
                                  if member_name in logged_in_users.values()]
 
+        # Send the message to all the members of the chat
         com.send_data(raw, connected_members_ips)
 
 
@@ -545,14 +574,17 @@ def handle_file_description(com, ip, params, raw):
         chat_id = params['chat_id']
         sender = params['sender']
 
+        # Encode the message to base64
         b64_raw = base64.b64encode(raw.encode()).decode()
+        # Add the encoded message to the database
         db_handle.add_message(chat_id, sender, b64_raw)
+        # Get the names of the members of the chat
         group_members_names = db_handle.get_group_members(chat_id)
-
+        # Get the IPs of the members of the chat
         connected_members_ips = [get_ip_by_username(member_name)
                                  for member_name in group_members_names
                                  if member_name in logged_in_users.values()]
-
+        # Send the message to all the members of the chat
         com.send_data(raw, connected_members_ips)
 
 
@@ -577,11 +609,16 @@ def handle_request_picture(com, chat_com, files_com, ip, params):
     else:
         db_handle = DBHandler('strife_db')
         username = str(params['pfp_username'])
+        # Get the path of the profile picture
         pic_path = db_handle.get_user_picture_path(username)
-        pic_contents = FileHandler.load_pfp(path=pic_path)
-        str_contents = base64.b64encode(pic_contents).decode()
-        msg = Protocol.profile_picture(username, str_contents)
-        files_com.send_file(msg, ip)
+        # If the user has a profile picture, send it to the client
+        if pic_path:
+            # Load the picture and encode it to base64
+            pic_contents = FileHandler.load_pfp(path=pic_path)
+            str_contents = base64.b64encode(pic_contents).decode()
+            # Send the profile picture to the client
+            msg = Protocol.profile_picture(username, str_contents)
+            files_com.send_file(msg, ip)
 
 
 def handle_update_pfp(com, ip, params):
@@ -600,12 +637,17 @@ def handle_update_pfp(com, ip, params):
     else:
         db_handle = DBHandler('strife_db')
         b64_picture = params['picture']
+        # Decode the base64 picture
         pic_contents = base64.b64decode(b64_picture)
+        # Save the picture and get the path
         path = FileHandler.save_pfp(pic_contents, logged_in_users[ip])
+        # If the path is empty, the picture was not saved
         if not path:
             com.send_data(Protocol.reject(params['opcode']), ip)
         else:
+            # Update the user's profile picture in the database
             db_handle.update_user_picture(logged_in_users[ip], path)
+            # Send the profile picture to the client
             msg = Protocol.profile_picture(logged_in_users[ip], b64_picture)
             com.send_file(msg, ip)
 
@@ -631,7 +673,9 @@ def handle_chat_history_request(com, chat_com, files_com, ip, params):
     else:
         db_handle = DBHandler('strife_db')
         chat_id = params['chat_id']
+        # Get the chat's message history
         history = db_handle.get_chat_history(chat_id)
+        # If the chat has a history, send it to the client
         if history:
             msg = Protocol.chat_history(history)
             chat_com.send_data(msg, ip)
@@ -681,12 +725,15 @@ def handle_file_in_chat(com, ip, params):
         chat_id = params['chat_id']
         filename = params['file_name']
         file_contents = params['file']
+        # Get the hash of the file
         file_hash = hashlib.sha256(file_contents.encode()).hexdigest()
+        # Save the file
         try:
             FileHandler.save_file(file_contents.encode(), chat_id, filename)
         except Exception:
             com.send_data(Protocol.reject(params['opcode']), ip)
         else:
+            # Add the file to the database
             db_handle.add_file(chat_id, filename, file_hash)
 
 
@@ -819,7 +866,9 @@ def handle_video_started(com, chat_com, files_com, ip, params):
         db_handle = DBHandler('strife_db')
         chat_id = params['chat_id']
         msg = Protocol.video_started(chat_id)
+        # Get the members of the group associated with the chat ID
         members = db_handle.get_group_members(chat_id)
+        # Send the message to all members of the group except the client that sent the message
         for member in members:
             member_ip = get_ip_by_username(member)
             if member_ip and member_ip != ip:
@@ -852,7 +901,9 @@ def handle_voice_join(com, chat_com, files_com, ip, params):
         online_members_names = []
 
         msg = Protocol.voice_user_joined(chat_id, ip, logged_in_users[ip])
+        # Get the members of the group associated with the chat ID
         members = db_handle.get_group_members(chat_id)
+        # Send the message to all members of the group except the client that sent the message
         for member in members:
             member_ip = get_ip_by_username(member)
             if member_ip and member_ip != ip:
@@ -860,6 +911,7 @@ def handle_voice_join(com, chat_com, files_com, ip, params):
                 online_members_ips.append(member_ip)
                 online_members_names.append(member)
 
+        # Send the voice call info message to the client that sent the voice join message
         msg = Protocol.voice_call_info(chat_id, online_members_ips, online_members_names)
         com.send_data(msg, ip)
 
@@ -890,7 +942,9 @@ def handle_video_join(com, chat_com, files_com, ip, params):
         online_members_names = []
 
         msg = Protocol.video_user_joined(chat_id, ip, logged_in_users[ip])
+        # Get the members of the group associated with the chat ID
         members = db_handle.get_group_members(chat_id)
+        # Send the message to all members of the group except the client that sent the message
         for member in members:
             member_ip = get_ip_by_username(member)
             if member_ip and member_ip != ip:
@@ -899,7 +953,62 @@ def handle_video_join(com, chat_com, files_com, ip, params):
                 online_members_names.append(member)
 
         msg = Protocol.video_call_info(chat_id, online_members_ips, online_members_names)
+        # Send the video call info message to the client that sent the video join message
         com.send_data(msg, ip)
+
+
+def handle_request_friend_list(com, chat_com, files_com, ip, params):
+    """
+    Function to handle a request friend list message from a client
+    :param com: The general communication object of the server
+    :type com: ServerCom
+    :param chat_com: The chats communication object of the server
+    :type chat_com: ServerCom
+    :param files_com: The files communication object of the server
+    :type files_com: ServerCom
+    :param ip: IP address of the client
+    :type ip: str
+    :param params: Dictionary of parameters of the message
+    :type params: dict
+    :return: None
+    """
+    # Check if the IP address is in the logged_in_users dictionary
+    if ip not in logged_in_users.keys():
+        # If the IP address is not logged in, send a rejection message to the client through the com object
+        com.send_data(Protocol.reject(params['opcode']), ip)
+    else:
+        db_handle = DBHandler('strife_db')
+        username = logged_in_users[ip]
+        friend_list = db_handle.get_friends_of(username)
+        # Check if the friend list is not empty
+        if len(friend_list) >= 1:
+            msg = Protocol.friend_list(friend_list)
+            com.send_data(msg, ip)
+
+
+def handle_logout(com, chat_com, files_com, ip, params):
+    """
+    Function to handle a logout message from a client
+    :param com: The general communication object of the server
+    :type com: ServerCom
+    :param chat_com: The chats communication object of the server
+    :type chat_com: ServerCom
+    :param files_com: The files communication object of the server
+    :type files_com: ServerCom
+    :param ip: IP address of the client
+    :type ip: str
+    :param params: Dictionary of parameters of the message
+    :type params: dict
+    :return: None
+    """
+    # Check if the IP address is in the logged_in_users dictionary
+    if ip not in logged_in_users.keys():
+        # If the IP address is not logged in, send a rejection message to the client through the com object
+        com.send_data(Protocol.reject(params['opcode']), ip)
+    else:
+        print(f'INFO: User logged out - "{logged_in_users[ip]}", {ip}')
+        # Remove the IP address from the logged_in_users dictionary
+        del logged_in_users[ip]
 
 
 def handle_general_messages(general_com, chat_com, files_com, q):
@@ -973,6 +1082,7 @@ def send_pending_friend_requests(username, com):
     :param com: The general communication object of the server
     :return: None
     """
+    # Check if the user is logged in
     if username in logged_in_users.values():
         ip = get_ip_by_username(username)
         pending_requests = [req_sender for req_sender, receiver in pending_friend_requests.items() if
@@ -990,9 +1100,12 @@ def add_pending_message(message, username):
     :param username: The username of the user to send the message to
     :return: None
     """
+    # Check if the user has pending messages
     if username in pending_messages.keys():
+        # Add the message to the pending messages list
         pending_messages[username].append(message)
     else:
+        # Create a new list of pending messages for the user
         pending_messages[username] = [message]
 
 
@@ -1005,7 +1118,9 @@ def send_pending_messages(username, com):
     """
     if username in logged_in_users.values():
         ip = get_ip_by_username(username)
+        # Check if the user has pending messages
         if username in pending_messages.keys():
+            # Send the pending messages to the user
             messages = pending_messages[username]
             for message in messages:
                 com.send_data(message, ip)
@@ -1019,8 +1134,10 @@ def send_group_members(com, chat_id):
     :return: None
     """
     db_handle = DBHandler('strife_db')
+    # Get the group members
     members = db_handle.get_group_members(chat_id)
     msg = Protocol.group_names(chat_id, members)
+    # Send the group members to all the online group members
     for member in members:
         member_ip = get_ip_by_username(member)
         if member_ip:
@@ -1062,6 +1179,8 @@ general_dict = {
     'start_video': handle_video_started,
     'join_voice': handle_voice_join,
     'join_video': handle_video_join,
+    'request_friend_list': handle_request_friend_list,
+    'logout': handle_logout,
 
 }
 

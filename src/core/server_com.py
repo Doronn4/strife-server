@@ -55,15 +55,17 @@ class ServerCom:
 
                 # A message has been sent from a client
                 else:
+                    size = None
                     try:
                         if self.com_type == 'files':
                             size = current_socket.recv(10).decode()
                         else:
                             # Receive the size of the data
                             size = current_socket.recv(4).decode()
+
                         # Convert the size to int
                         size = int(size)
-                        
+
                         if size > self.MAX_SIZE:
                             continue
                         # Receive the data
@@ -75,7 +77,7 @@ class ServerCom:
                     # Handle exceptions
                     except ValueError:
                         self._close_client(current_socket)
-                    except socket.error:
+                    except socket.error as e:
                         self._close_client(current_socket)
 
                     else:
@@ -124,12 +126,12 @@ class ServerCom:
             # Add the client to the dict of connected clients and save his ip and public key
             self.open_clients[client] = [ip, aes_key]
             if self.log:
-                print(f'{self.com_type.upper()}: Changed keys successfully with', ip)
+                print(f'{self.com_type.upper()}: New client connected', ip)
 
     def receive_file(self, size: int, client_socket: socket.socket):
         """
         Receive a file from a client
-        :param client_socket:
+        :param client_socket: The client socket
         :param size: The size of the file
         :return: The file (as bytes)
         """
@@ -201,7 +203,7 @@ class ServerCom:
 
     def send_file(self, contents, dst_addr):
         """
-        Send data to a client or a list of clients
+        Send a file to a client or a list of clients
         :param contents: The data to send
         :param dst_addr: The destination ip
         :return: -
