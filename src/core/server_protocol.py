@@ -22,7 +22,8 @@ class Protocol:
         'group_members': 11,
         'user_status': 12,
         'friend_added': 13,
-        'friend_list': 14
+        'friend_list': 14,
+        'keys': 15
     }
     chat_opcodes = {
         'text_message': 1,
@@ -57,7 +58,8 @@ class Protocol:
         19: 'request_chats',
         20: 'accept_friend',
         21: 'request_friend_list',
-        22: 'logout'
+        22: 'logout',
+        23: 'request_keys'
     }
     c_chat_opcodes = {
         1: 'text_message',
@@ -95,7 +97,8 @@ class Protocol:
         'file_in_chat': ('chat_id', 'file_name', 'file'),
         'file_description': ('chat_id', 'sender', 'file_name', 'file_size', 'file_hash',),
         'request_friend_list': (),
-        'logout': ()
+        'logout': (),
+        'request_keys': ()
     }
 
     @staticmethod
@@ -385,7 +388,7 @@ class Protocol:
         opcode = Protocol.general_opcodes['friend_added']
         # Construct the message
         msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}{friend_username}" \
-              f"{Protocol.FIELD_SEPARATOR}{friends_key}{Protocol.FIELD_SEPARATOR}{chat_id} "
+              f"{Protocol.FIELD_SEPARATOR}{friends_key}{Protocol.FIELD_SEPARATOR}{chat_id}"
         # Return the message after protocol
         return msg
 
@@ -444,6 +447,23 @@ class Protocol:
                 msg += Protocol.LIST_SEPARATOR + message
 
         # Return the constructed message
+        return msg
+
+    @staticmethod
+    def keys(keys: list, chat_ids: list):
+        """
+        Construct a message with a list of chat ids and their corresponding keys.
+        :param chat_ids: The list of chat ids
+        :type chat_ids: list
+        :param keys: The list of keys
+        :type keys: list
+        :return: The constructed message
+        :rtype: str
+        """
+        opcode = Protocol.general_opcodes['keys']
+        msg = f"{str(opcode).zfill(2)}{Protocol.FIELD_SEPARATOR}" \
+              f"{Protocol.LIST_SEPARATOR.join(list(map(str, chat_ids)))}" \
+              f"{Protocol.FIELD_SEPARATOR}{Protocol.LIST_SEPARATOR.join(keys)}"
         return msg
 
     @staticmethod
@@ -515,3 +535,5 @@ class Protocol:
                 else:
                     ret[param_name] = value
         return ret
+
+

@@ -2,6 +2,7 @@ import random
 import sqlite3
 import datetime
 import time
+from src.core.cryptions import AESCipher
 
 
 class DBHandler:
@@ -27,6 +28,7 @@ class DBHandler:
         self._create_files_table()
         self._create_messages_table()
         self._create_friends_table()
+        self._create_keys_table()
 
         # Default profile pic and status for new users
         self.DEFAULT_PROFILE_PICTURES = ['placeholder1.png', 'placeholder2.png', 'placeholder3.png', 'placeholder4.png',
@@ -105,6 +107,64 @@ class DBHandler:
               f" friend_id INT," \
               f" primary key (user_id, friend_id))"
         self.cursor.execute(sql)
+
+    def _create_keys_table(self):
+        """
+        Creates the keys table in the db
+        :return: -
+        """
+        sql = f"CREATE TABLE IF NOT EXISTS keys_table (" \
+              f"user_id INT," \
+              f" chat_id INT," \
+              f" key TEXT)"
+        self.cursor.execute(sql)
+
+    def add_key(self, username, chat_id, key, user_password):
+        """
+        Adds a key to the keys table
+        :param user_password:
+        :type user_password:
+        :param username: The user's username
+        :param chat_id: The chat's id
+        :param key: The key
+        :return: -
+        """
+        # Get the user's id
+        user_id = self._get_unique_id(username)
+        # Pad the user's password to 32 bytes
+        user_password = user_password.ljust(32, '0')
+        # Encrypt the key with the user's password using AES encryption
+        encrypted_key = AESCipher.encrypt(user_password, key)
+        data = [user_id, chat_id, encrypted_key]
+        sql = f"INSERT INTO keys_table (user_id, chat_id, key) " \
+              f"VALUES (?, ?, ?) "
+        self.cursor.execute(sql, data)
+        self.con.commit()
+
+    def get_user_keys(self, username, user_password):
+        """
+        Gets all the keys of a user
+        :param user_password:
+        :type user_password:
+        :param username: The user's username
+        :return: A tuple of the keys and the chat ids
+        """
+        # Get the user's id
+        user_id = self._get_unique_id(username)
+        # Pad the user's password to 32 bytes
+        user_password = user_password.ljust(32, '0')
+
+        sql = f"SELECT chat_id, key FROM keys_table WHERE user_id=?"
+        self.cursor.execute(sql, [user_id])
+        result = self.cursor.fetchall()
+        keys = []
+        chat_ids = []
+        # Decrypt the keys
+        for i in range(len(result)):
+            chat_ids.append(result[i][0])
+            keys.append(AESCipher.decrypt(user_password, result[i][1]))
+
+        return keys, chat_ids
 
     def add_user(self, username, password) -> bool:
         """

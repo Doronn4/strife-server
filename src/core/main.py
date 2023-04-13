@@ -144,6 +144,7 @@ def handle_login(com, chat_com, files_com, ip, params):
             com.send_data(approve_msg, ip)
             # Add the user to the dict of logged-in users with his ip as the key and username as value
             logged_in_users[ip] = username
+            logged_in_passwords[ip] = password
 
             # Start a thread to send the pending friend requests and messages after waiting for 2 seconds
             send_pending_friend_requests(username, com)
@@ -325,6 +326,8 @@ def handle_group_creation(com, chat_com, files_com, ip, params):
             FileHandler.create_chat(group_id)
             # Create a message that indicates that the creator of the group was added to the group
             msg = Protocol.added_to_group(group_name, group_id, group_key)
+            # Add the key to the database
+            db_handle.add_key(creator_username, group_id, group_key, logged_in_passwords[ip])
             # Send the message to the client (creator)
             com.send_data(msg, ip)
     else:
@@ -362,6 +365,9 @@ def handle_add_group_member(com, chat_com, files_com, ip, params):
         # If the operation was successful, send the user a message that he was added to the group
         if flag:
             added_msg = Protocol.added_to_group(db_handle.get_group_name(chat_id), chat_id, group_key)
+            # Add the key to the database
+            db_handle.add_key(username, chat_id, group_key, logged_in_passwords[ip])
+            # Send the message to the user
             com.send_data(added_msg, get_ip_by_username(username))
             # Send the group members to the user
             send_group_members(com, chat_id)
@@ -396,6 +402,7 @@ def handle_request_chats(com, chat_com, files_com, ip, params):
         username = logged_in_users[ip]
         # Get the user's chats
         chats = db_handle.get_chats_of(username)
+        print('LOG: Chats of {}: {}'.format(username, chats))
         # Check if the user has any chats
         if len(chats) > 0:
             # Send the chats list to the user
@@ -510,6 +517,7 @@ def handle_password_change(com, chat_com, files_com, ip, params):
 
             # Change the password in the database and send the response
             if db_handle.change_password(logged_in_users[ip], hashed_password):
+                logged_in_passwords[ip] = new_password
                 com.send_data(Protocol.approve(params['opcode']), ip)
             else:
                 com.send_data(Protocol.reject(params['opcode']), ip)
@@ -1009,6 +1017,40 @@ def handle_logout(com, chat_com, files_com, ip, params):
         print(f'INFO: User logged out - "{logged_in_users[ip]}", {ip}')
         # Remove the IP address from the logged_in_users dictionary
         del logged_in_users[ip]
+        del logged_in_passwords[ip]
+
+
+def handle_request_keys(com, chat_com, files_com, ip, params):
+    """
+    Function to handle a request keys message from a client
+    :param com: The general communication object of the server
+    :type com: ServerCom
+    :param chat_com: The chats communication object of the server
+    :type chat_com: ServerCom
+    :param files_com: The files communication object of the server
+    :type files_com: ServerCom
+    :param ip: IP address of the client
+    :type ip: str
+    :param params: Dictionary of parameters of the message
+    :type params: dict
+    :return: None
+    """
+    # Check if the IP address is in the logged_in_users dictionary
+    if ip not in logged_in_users.keys():
+        # If the IP address is not logged in, send a rejection message to the client through the com object
+        com.send_data(Protocol.reject(params['opcode']), ip)
+    else:
+        db_handle = DBHandler('strife_db')
+        # Get the keys of the user
+        username = logged_in_users[ip]
+        # Get the keys of the user and the chat IDs of the chats that the keys are associated with
+        keys, chat_ids = db_handle.get_user_keys(username, logged_in_passwords[ip])
+        print(f'LOG: User requested keys - "{username}", {ip}', keys, chat_ids)
+        # Check if the keys list is not empty
+        if len(keys) > 0:
+            # Send the keys to the client
+            msg = Protocol.keys(keys, chat_ids)
+            com.send_data(msg, ip)
 
 
 def handle_general_messages(general_com, chat_com, files_com, q):
@@ -1028,6 +1070,7 @@ def handle_general_messages(general_com, chat_com, files_com, q):
         if data == '':
             if ip in logged_in_users.keys():
                 del logged_in_users[ip]
+                del logged_in_passwords[ip]
 
         else:
             try:
@@ -1181,6 +1224,7 @@ general_dict = {
     'join_video': handle_video_join,
     'request_friend_list': handle_request_friend_list,
     'logout': handle_logout,
+    'request_keys': handle_request_keys,
 
 }
 
@@ -1198,6 +1242,9 @@ files_dict = {
 
 # The dictionary of the users with the key being the ip and the value being the username
 logged_in_users = {}
+
+# The dictionary of the users with the key being the username and the value being the password
+logged_in_passwords = {}
 
 # The dictionary of the pending friend requests with the key being the sender and the value being the receiver
 pending_friend_requests = {}
