@@ -148,7 +148,8 @@ def handle_login(com, chat_com, files_com, ip, params):
 
             # Start a thread to send the pending friend requests and messages after waiting for 2 seconds
             send_pending_friend_requests(username, com)
-            send_pending_messages(username, chat_com)
+            send_pending_messages(username, com)
+            save_pending_keys(username, password)
 
             # Send the user his status
             status = db_handle.get_user_status(username)
@@ -250,14 +251,20 @@ def handle_friend_accept(com, chat_com, files_com, ip, params):
                 msg = Protocol.friend_added(friend_username, friends_key, chat_id)
                 com.send_data(msg, ip)
 
+                # Add the key to the database
+                db_handle.add_key(username, chat_id, friends_key, logged_in_passwords[ip])
+
                 # Send the friend added message to the user
                 msg = Protocol.friend_added(username, friends_key, chat_id)
                 friend_ip = get_ip_by_username(friend_username)
                 if friend_ip:
                     com.send_data(msg, get_ip_by_username(friend_username))
+                    db_handle.add_key(friend_username, chat_id, friends_key, logged_in_passwords[friend_ip])
+
                 else:
                     # If the friend is not online, add the message to his pending messages
                     add_pending_message(msg, friend_username)
+                    add_pending_key(friends_key, chat_id, friend_username)
 
                 del pending_friend_requests[friend_username]
             else:
@@ -366,9 +373,18 @@ def handle_add_group_member(com, chat_com, files_com, ip, params):
         if flag:
             added_msg = Protocol.added_to_group(db_handle.get_group_name(chat_id), chat_id, group_key)
             # Add the key to the database
-            db_handle.add_key(username, chat_id, group_key, logged_in_passwords[ip])
-            # Send the message to the user
-            com.send_data(added_msg, get_ip_by_username(username))
+            db_handle.add_key(adder, chat_id, group_key, logged_in_passwords[ip])
+
+            user_ip = get_ip_by_username(username)
+            if user_ip:
+                # Send the message to the user
+                com.send_data(added_msg, get_ip_by_username(username))
+                db_handle.add_key(username, chat_id, group_key, logged_in_passwords[user_ip])
+            else:
+                # If the user is not online, add the message to his pending messages
+                add_pending_message(added_msg, username)
+                add_pending_key(group_key, chat_id, username)
+
             # Send the group members to the user
             send_group_members(com, chat_id)
 
@@ -402,7 +418,6 @@ def handle_request_chats(com, chat_com, files_com, ip, params):
         username = logged_in_users[ip]
         # Get the user's chats
         chats = db_handle.get_chats_of(username)
-        print('LOG: Chats of {}: {}'.format(username, chats))
         # Check if the user has any chats
         if len(chats) > 0:
             # Send the chats list to the user
@@ -625,6 +640,7 @@ def handle_request_picture(com, chat_com, files_com, ip, params):
             pic_contents = FileHandler.load_pfp(path=pic_path)
             str_contents = base64.b64encode(pic_contents).decode()
             # Send the profile picture to the client
+            print(f'LOG: Sending profile picture of {username} to {ip}')
             msg = Protocol.profile_picture(username, str_contents)
             files_com.send_file(msg, ip)
 
@@ -685,7 +701,9 @@ def handle_chat_history_request(com, chat_com, files_com, ip, params):
         history = db_handle.get_chat_history(chat_id)
         # If the chat has a history, send it to the client
         if history:
-            msg = Protocol.chat_history(history)
+            print(f'LOG: Sending chat history of chat {chat_id} to {ip}')
+            msg = Protocol.chat_history(history, chat_id)
+            print(f'LOG: History msg: {msg}')
             chat_com.send_data(msg, ip)
 
 
@@ -783,9 +801,8 @@ def handle_request_file(com, chat_com, files_com, ip, params):
                     com.send_data(Protocol.reject(params['opcode']), ip)
                     db_handle.remove_file(file_hash)
                 else:
-                    b64_contents = base64.b64encode(file_contents).decode()
                     # Create a message using the Protocol module's send_file() method
-                    msg = Protocol.send_file(chat_id, file_name, b64_contents)
+                    msg = Protocol.send_file(chat_id, file_name, file_contents.decode())
                     # Send the message to the files_com object to be forwarded to the file server
                     files_com.send_file(msg, ip)
 
@@ -818,6 +835,7 @@ def handle_request_status(com, chat_com, files_com, ip, params):
         except Exception:
             com.send_data(Protocol.reject(params['opcode']), ip)
         else:
+            print(f"LOG: Sending status of {username} to {logged_in_users[ip]}")
             com.send_data(Protocol.user_status(username, status), ip)
 
 
@@ -845,6 +863,7 @@ def handle_voice_started(com, chat_com, files_com, ip, params):
         chat_id = params['chat_id']
         msg = Protocol.voice_started(chat_id)
         members = db_handle.get_group_members(chat_id)
+        print(f"LOG: Sending voice started message to {members} from {logged_in_users[ip]}")
         for member in members:
             member_ip = get_ip_by_username(member)
             if member_ip and member_ip != ip:
@@ -877,6 +896,7 @@ def handle_video_started(com, chat_com, files_com, ip, params):
         # Get the members of the group associated with the chat ID
         members = db_handle.get_group_members(chat_id)
         # Send the message to all members of the group except the client that sent the message
+        print(f"LOG: Sending video started message to {members} from {logged_in_users[ip]}")
         for member in members:
             member_ip = get_ip_by_username(member)
             if member_ip and member_ip != ip:
@@ -908,6 +928,9 @@ def handle_voice_join(com, chat_com, files_com, ip, params):
         online_members_ips = []
         online_members_names = []
 
+        # TODO: is it really necessary to send the voice user joined message
+        #  to the client that sent the voice join message?
+        print(f"LOG: User {logged_in_users[ip]} joined voice call in chat {chat_id}")
         msg = Protocol.voice_user_joined(chat_id, ip, logged_in_users[ip])
         # Get the members of the group associated with the chat ID
         members = db_handle.get_group_members(chat_id)
@@ -949,6 +972,7 @@ def handle_video_join(com, chat_com, files_com, ip, params):
         online_members_ips = []
         online_members_names = []
 
+        print(f"LOG: User {logged_in_users[ip]} joined video call in chat {chat_id}")
         msg = Protocol.video_user_joined(chat_id, ip, logged_in_users[ip])
         # Get the members of the group associated with the chat ID
         members = db_handle.get_group_members(chat_id)
@@ -989,7 +1013,7 @@ def handle_request_friend_list(com, chat_com, files_com, ip, params):
         username = logged_in_users[ip]
         friend_list = db_handle.get_friends_of(username)
         # Check if the friend list is not empty
-        if len(friend_list) >= 1:
+        if True:
             msg = Protocol.friend_list(friend_list)
             com.send_data(msg, ip)
 
@@ -1152,6 +1176,48 @@ def add_pending_message(message, username):
         pending_messages[username] = [message]
 
 
+def add_pending_key(key, chat_id, username):
+    """
+    Add a pending key to the pending keys dictionary
+    :param key: The key to add
+    :param chat_id: The chat id of the chat that the key is associated with
+    :param username: The username of the user to send the key to
+    :return: None
+    """
+    # Check if the user has pending keys
+    if username in pending_keys.keys():
+        # Check if the user has pending keys for the chat
+        if chat_id in pending_keys[username].keys():
+            # Add the key to the pending keys list
+            pending_keys[username][chat_id].append(key)
+        else:
+            # Create a new list of pending keys for the chat
+            pending_keys[username][chat_id] = [key]
+    else:
+        # Create a new dictionary of pending keys for the user
+        pending_keys[username] = {chat_id: [key]}
+
+
+def save_pending_keys(username, password):
+    """
+    Save the pending keys of a user
+    :param username: The username of the user
+    :param password: The password of the user
+    :return: None
+    """
+    # Check if the user has pending keys
+    if username in pending_keys.keys():
+        db_handle = DBHandler('strife_db')
+        # Get the pending keys of the user
+        pending = pending_keys[username]
+        # Add the pending keys to the keys list
+        for chat_id in pending.keys():
+            for key in pending[chat_id]:
+                db_handle.add_key(username, chat_id, key, password)
+
+        del pending_keys[username]
+
+
 def send_pending_messages(username, com):
     """
     Send pending messages to a user
@@ -1253,6 +1319,9 @@ pending_friend_requests = {}
 pending_messages = {}
 
 
+pending_keys = {}
+
+
 def main():
     script_path = Path(os.path.abspath(__file__))
     wd = script_path.parent.parent.parent
@@ -1262,17 +1331,17 @@ def main():
     # Create the general messages queue
     general_queue = queue.Queue()
     # Create the communication object for the general messages
-    general_com = ServerCom(1000, general_queue, log=True)
+    general_com = ServerCom(3108, general_queue, log=True)
 
     # Create the chat messages queue
     chats_queue = queue.Queue()
     # Create the communication object for the chat messages
-    chats_com = ServerCom(2000, chats_queue, com_type='chats')
+    chats_com = ServerCom(2907, chats_queue, com_type='chats')
 
     # Create the files messages queue
     files_queue = queue.Queue()
     # Create the communication object for the files messages
-    files_com = ServerCom(3000, files_queue, com_type='files')
+    files_com = ServerCom(3103, files_queue, com_type='files')
 
     # Start a thread to handle the general messages being received
     threading.Thread(target=handle_general_messages, args=(general_com, chats_com, files_com, general_queue)).start()

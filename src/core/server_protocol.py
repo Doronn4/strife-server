@@ -428,10 +428,12 @@ class Protocol:
         return msg
 
     @staticmethod
-    def chat_history(messages):
+    def chat_history(messages, chat_id):
         """
         Construct a message with a list of chat history messages.
 
+        :param chat_id: the id of the chat the messages belong to
+        :type chat_id: int
         :param messages: (list) a list of messages representing the chat history
         :return: (str) the constructed message
         """
@@ -445,6 +447,8 @@ class Protocol:
         if len(messages) > 1:
             for message in messages[1:]:
                 msg += Protocol.LIST_SEPARATOR + message
+
+        msg += f'{Protocol.FIELD_SEPARATOR}{chat_id}'
 
         # Return the constructed message
         return msg
