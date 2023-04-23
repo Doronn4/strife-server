@@ -280,6 +280,53 @@ class DBHandler:
 
         return flag
 
+    def _get_private_chat_id(self, username, friend):
+        """
+        Gets the id of the private chat between two friends
+        :param username: The username of the first friend
+        :param friend: The username of the second friend
+        :return: The id of the private chat
+        """
+        user_id = self._get_unique_id(username)
+        friend_id = self._get_unique_id(friend)
+        chat_id = None
+
+        if self._are_friends(user_id, friend_id):
+            sql = f"SELECT chat_id FROM chats_table WHERE name=?"
+            self.cursor.execute(sql, [f'PRIVATE%%{user_id}%%{friend_id}'])
+            result = self.cursor.fetchall()
+            if len(result) == 1:
+                chat_id = result[0][0]
+            else:
+                sql = f"SELECT chat_id FROM chats_table WHERE name=?"
+                self.cursor.execute(sql, [f'PRIVATE%%{friend_id}%%{user_id}'])
+                result = self.cursor.fetchall()
+                chat_id = result[0][0]
+
+        return chat_id
+
+    def _remove_group(self, chat_id):
+        """
+        Remove a group from the database
+        :param chat_id: The id of the group
+        :return: -
+        """
+        # Check if the group exists
+        if not self._group_exists(chat_id):
+            return
+
+        sql = f"DELETE FROM groups_table WHERE chat_id=?"
+        self.cursor.execute(sql, [chat_id])
+        self.con.commit()
+        # Remove all the users from the participants table
+        sql = f"DELETE FROM participants_table WHERE chat_id=?"
+        self.cursor.execute(sql, [chat_id])
+        self.con.commit()
+        # Delete the chat history of the group in the messages table
+        sql = f"DELETE FROM messages_table WHERE chat_id=?"
+        self.cursor.execute(sql, [chat_id])
+        self.con.commit()
+
     def remove_friend(self, username, friend):
         """
         Remove a pair of friends from the database
@@ -299,6 +346,10 @@ class DBHandler:
                   "WHERE (user_id=? AND friend_id=?) OR (friend_id=? AND user_id=?)"
             self.cursor.execute(sql, data)
             self.con.commit()
+
+            # Remove the private chat between the two friends
+            chat_id = self._get_private_chat_id(user_id, friend_id)
+            self._remove_group(chat_id)
 
     def _are_friends(self, user1_id: int, user2_id: int) -> bool:
         """

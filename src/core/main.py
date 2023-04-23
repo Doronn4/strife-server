@@ -185,6 +185,11 @@ def handle_friend_add(com, chat_com, files_com, ip, params):
         friend_username = str(params['friend_username'])
         adder_username = logged_in_users[ip]
 
+        # Check if the user is trying to add himself
+        if adder_username == friend_username:
+            com.send_data(Protocol.reject(params['opcode']), ip)
+            return
+
         # Check if the friend request is already pending
         is_already_pending = (
                                      adder_username in pending_friend_requests.keys() and
@@ -1317,7 +1322,6 @@ pending_friend_requests = {}
 
 # The dictionary of the pending messages with the key being the username and the value being the list of messages
 pending_messages = {}
-
 
 pending_keys = {}
 
