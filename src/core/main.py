@@ -521,9 +521,10 @@ def handle_password_change(com, chat_com, files_com, ip, params):
         db_handle = DBHandler('strife_db')
         new_password = params['new_password']
         old_password = params['old_password']
+        hashed_old_password = hashlib.sha256(old_password.encode()).hexdigest()
 
         # Check if the old password is correct
-        if not db_handle.check_credentials(logged_in_users[ip], old_password):
+        if not db_handle.check_credentials(logged_in_users[ip], hashed_old_password):
             com.send_data(Protocol.reject(params['opcode']), ip)
             return
 
@@ -947,9 +948,10 @@ def handle_voice_join(com, chat_com, files_com, ip, params):
                 online_members_ips.append(member_ip)
                 online_members_names.append(member)
 
-        # Send the voice call info message to the client that sent the voice join message
-        msg = Protocol.voice_call_info(chat_id, online_members_ips, online_members_names)
-        com.send_data(msg, ip)
+        if len(online_members_ips) > 0:
+            # Send the voice call info message to the client that sent the voice join message
+            msg = Protocol.voice_call_info(chat_id, online_members_ips, online_members_names)
+            com.send_data(msg, ip)
 
 
 def handle_video_join(com, chat_com, files_com, ip, params):
@@ -989,9 +991,10 @@ def handle_video_join(com, chat_com, files_com, ip, params):
                 online_members_ips.append(member_ip)
                 online_members_names.append(member)
 
-        msg = Protocol.video_call_info(chat_id, online_members_ips, online_members_names)
-        # Send the video call info message to the client that sent the video join message
-        com.send_data(msg, ip)
+        if len(online_members_ips) > 0:
+            msg = Protocol.video_call_info(chat_id, online_members_ips, online_members_names)
+            # Send the video call info message to the client that sent the video join message
+            com.send_data(msg, ip)
 
 
 def handle_request_friend_list(com, chat_com, files_com, ip, params):
