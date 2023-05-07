@@ -1085,6 +1085,32 @@ def handle_request_keys(com, chat_com, files_com, ip, params):
             com.send_data(msg, ip)
 
 
+def handle_request_picture_check(com, chat_com, files_com, ip, params):
+    if ip not in logged_in_users.keys():
+        com.send_data(Protocol.reject(params['opcode']), ip)
+    else:
+        db_handle = DBHandler('strife_db')
+        username = str(params['username'])
+        user_current_hash = str(params['pfp_hash'])
+        # Get the path of the profile picture
+        pic_path = db_handle.get_user_picture_path(username)
+        # If the user has a profile picture, send it to the client
+        if pic_path:
+            # Load the picture and encode it to base64
+            pic_contents = FileHandler.load_pfp(path=pic_path)
+            # Hash the picture contents
+            pic_hash = hashlib.sha256(pic_contents).hexdigest()
+            # Check if the picture hash is the same as the one sent by the client
+            if pic_hash == user_current_hash:
+                # If the hashes are the same, do not send the picture
+                return
+            str_contents = base64.b64encode(pic_contents).decode()
+            # Send the profile picture to the client
+            print(f'LOG: Sending profile picture of {username} to {ip}')
+            msg = Protocol.profile_picture(username, str_contents)
+            files_com.send_file(msg, ip)
+
+
 def handle_general_messages(general_com, chat_com, files_com, q):
     """
     Handle the general messages
@@ -1267,11 +1293,7 @@ def get_ip_by_username(username):
     :param username: The username of the user
     :return: The ip of the user, or None if not found
     """
-    ips = [target_ip for target_ip, name in logged_in_users.items() if name == username]
-    try:
-        return ips[0]
-    except IndexError:
-        return None
+    return next((target_ip for target_ip, name in logged_in_users.items() if name == username), None)
 
 
 # The dictionary of the general messages
@@ -1299,6 +1321,7 @@ general_dict = {
     'request_friend_list': handle_request_friend_list,
     'logout': handle_logout,
     'request_keys': handle_request_keys,
+    'request_user_picture_check': handle_request_picture_check,
 
 }
 

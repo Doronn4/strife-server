@@ -59,7 +59,8 @@ class Protocol:
         20: 'accept_friend',
         21: 'request_friend_list',
         22: 'logout',
-        23: 'request_keys'
+        23: 'request_keys',
+        24: 'request_user_picture_check'
     }
     c_chat_opcodes = {
         1: 'text_message',
@@ -98,7 +99,8 @@ class Protocol:
         'file_description': ('chat_id', 'sender', 'file_name', 'file_size', 'file_hash',),
         'request_friend_list': (),
         'logout': (),
-        'request_keys': ()
+        'request_keys': (),
+        'request_user_picture_check': ('username', 'pfp_hash')
     }
 
     @staticmethod

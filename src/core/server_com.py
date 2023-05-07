@@ -16,7 +16,7 @@ class ServerCom:
         :param server_port: The server port
         :param message_queue: The message queue
         """
-        self.MAX_SIZE = 8 * 1000000
+        self.MAX_SIZE = 16 * 1000000
         self.FILE_CHUNK_SIZE = 4096  # The chunk size to send when sending files
         self.port = server_port  # The server's port
         self.message_queue = message_queue  # The message queue of the server
