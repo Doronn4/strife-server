@@ -38,7 +38,7 @@ def check_password(password):
     elif len(password) < 3:
         is_valid = False
 
-    return True
+    return is_valid
 
 
 def check_username(username):
@@ -62,7 +62,7 @@ def check_username(username):
     elif len(username) < 3:
         is_valid = False
 
-    return True
+    return is_valid
 
 
 def handle_register(com, chat_com, files_com, ip, params):
@@ -432,6 +432,7 @@ def handle_request_chats(com, chat_com, files_com, ip, params):
         com.send_data(Protocol.reject(params['opcode']), ip)
 
 
+# This method is now deprecated as username changes are not longer available
 def handle_username_change(com, chat_com, files_com, ip, params):
     """
     Function to handle a username change
@@ -448,23 +449,22 @@ def handle_username_change(com, chat_com, files_com, ip, params):
     :type params: dict
     :return: None
     """
-    if ip not in logged_in_users.keys():
-        com.send_data(Protocol.reject(params['opcode']), ip)
-    else:
-        db_handle = DBHandler('strife_db')
-        new_username = str(params['new_username'])
-        old_username = logged_in_users[ip]
+    com.send_data(Protocol.reject(params['opcode']), ip)
 
-        # Check if the new username is valid
-        if not check_username(new_username):
-            com.send_data(Protocol.reject(params['opcode']), ip)
-        else:
-            # Check if the new username is already taken
-            if db_handle.change_username(old_username, new_username):
-                logged_in_users[ip] = new_username
-                com.send_data(Protocol.approve(params['opcode']), ip)
-            else:
-                com.send_data(Protocol.reject(params['opcode']), ip)
+    # db_handle = DBHandler('strife_db')
+    # new_username = str(params['new_username'])
+    # old_username = logged_in_users[ip]
+    #
+    # # Check if the new username is valid
+    # if not check_username(new_username):
+    #     com.send_data(Protocol.reject(params['opcode']), ip)
+    # else:
+    #     # Check if the new username is already taken
+    #     if db_handle.change_username(old_username, new_username):
+    #         logged_in_users[ip] = new_username
+    #         com.send_data(Protocol.approve(params['opcode']), ip)
+    #     else:
+    #         com.send_data(Protocol.reject(params['opcode']), ip)
 
 
 def handle_status_change(com, chat_com, files_com, ip, params):
