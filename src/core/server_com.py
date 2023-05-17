@@ -48,8 +48,6 @@ class ServerCom:
                     # Connecting a new client
                     client, addr = self.socket.accept()
                     ip = addr[0]
-                    if self.log:
-                        print(f'{self.com_type.upper()}: new client trying to connect', ip)
                     # Start a thread to swap keys with the client
                     threading.Thread(target=self._change_keys, args=(client, addr[0],)).start()
 
@@ -119,14 +117,14 @@ class ServerCom:
         except Exception as e:
             # Handle exceptions
             if self.log:
-                print(f'{self.com_type.upper()}: Change keys with', ip, 'unsuccessful')
+                print(f'{self.com_type.upper()}: Connection attempt by-', ip, 'was unsuccessful')
             self._close_client(client)
 
         else:
             # Add the client to the dict of connected clients and save his ip and public key
             self.open_clients[client] = [ip, aes_key]
             if self.log:
-                print(f'{self.com_type.upper()}: New client connected', ip)
+                print(f'{self.com_type.upper()}: New client connected-', ip)
 
     def receive_file(self, size: int, client_socket: socket.socket):
         """
